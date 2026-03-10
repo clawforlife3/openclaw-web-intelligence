@@ -8,15 +8,21 @@
 
 ## 1.1 Strategy
 
-建議採用 **4 週 MVP 實作節奏**，先交付高價值且低複雜度的核心：
+建議採用 **分階段實作節奏**：
 
+### MVP 1.0（已完成）
 1. schemas / foundations
 2. HTTP extract
 3. search integration
 4. map / crawl
 5. storage / cache / observability
 6. OpenClaw integration
-7. monitor / diff
+
+### MVP 2.0（規劃中）
+1. Phase 1: 統一 extraction pipeline + 雙層快取
+2. Phase 4: robots.txt 解析
+3. Phase 3: Structured extraction
+4. Phase 2: Headless browser
 
 ### 核心原則
 - 先靜態 HTTP path，後 browser path
@@ -28,20 +34,25 @@
 
 # 2. Delivery Scope
 
-## MVP Deliverables
+## MVP 1.0 Deliverables（已完成）
 - unified schemas and validators
 - HTTP extractor
 - search adapter
 - map/crawl engine
-- SQLite + filesystem artifacts
 - cache
-- structured logs + basic metrics
+- structured logs
 - OpenClaw-facing adapter
-- basic monitor/diff
 - docs + examples
 
+## MVP 2.0 Deliverables（規劃中）
+- 統一 extraction pipeline
+- 雙層快取（request + page）
+- Playwright browser fetcher
+- robots.txt 解析
+- Structured extraction
+- Per-domain rate limiting
+
 ## Deferred
-- browser executor
 - login session support
 - screenshot/download flows
 - distributed workers
@@ -335,3 +346,104 @@ Use `openclaw-web-intelligence-user-stories.md` to generate stories and tasks by
 3. 開始做 extractor
 
 因為 extractor 是整個系統的地基；search、crawl、monitor 最後都會回到 extract output quality。
+
+---
+
+# 12. MVP 2.0 詳細工作拆解
+
+## Phase 1：統一 Extraction Pipeline + 雙層快取
+
+### Objectives
+- 統一 httpExtractor 與 crawler 的抽取邏輯
+- 實作雙層快取架構
+
+### Tasks
+- [ ] 重構 httpExtractor.ts 為通用抽取模組
+- [ ] 讓 crawler.ts 共用抽取邏輯
+- [ ] 實作 request cache（基於 request hash）
+- [ ] 實作 page cache（基於 URL + ETag/Last-Modified）
+- [ ] 實作 per-URL TTL
+- [ ] 實作 stale-while-revalidate
+
+### Exit Criteria
+- extract 與 crawl 輸出欄位一致
+- 同一 URL 第二次請求從 cache 回應
+- 快取命中率可查詢
+
+---
+
+## Phase 4：robots.txt 解析
+
+### Objectives
+- 讓爬蟲遵守 robots.txt 政策
+- 提供 strict/lenient/off 三種模式
+
+### Tasks
+- [ ] 實作 robots.txt 解析器
+- [ ] 實作 robotsMode（strict/lenient/off）
+- [ ] 在 frontier enqueue 前檢查 robots
+- [ ] 解析 /robots.txt 的 Sitemap
+- [ ] 快取 robots policy（per-host）
+
+### Exit Criteria
+- 可設定 strict 模式，robots 禁止的 URL 不會被抓取
+- Lenient 模式會記錄 warning 但仍允許
+
+---
+
+## Phase 3：Structured Extraction
+
+### Objectives
+- 三層設計：通用 → 主內容 → 站型
+- 輸出結構化資料
+
+### Tasks
+- [ ] 實作 Layer 1：通用內容抽取（固定 document model）
+- [ ] 實作 Layer 2：主內容辨識（boilerplate removal）
+- [ ] 實作 Layer 3：站型專用 extractor
+- [ ] 建立 pluggable extractor 架構
+- [ ] 支援 kinds：generic、docs、article、product、forum
+- [ ] Schema validation
+
+### Exit Criteria
+- 每個文件都有 kind 與 structured 欄位
+- 可自訂新增站型 extractor
+
+---
+
+## Phase 2：Headless Browser
+
+### Objectives
+- 支援 JS-heavy 網站
+- 自動 fallback 機制
+
+### Tasks
+- [ ] 安裝 Playwright
+- [ ] 實作 browserFetcher.ts
+- [ ] 實作 fetchRouter.ts 決策邏輯
+- [ ] 實作 static → browser fallback
+- [ ] 支援 screenshot（debug 用）
+- [ ] 設定 UA、viewport、timezone
+
+### Exit Criteria
+- 設定 renderMode=browser 時使用 Playwright
+- Static fetch 失敗時自動 fallback 到 browser
+- JS-heavy 網站可正確擷取內容
+
+---
+
+# 13. MVP 2.0 驗收標準
+
+| Milestone | 定義 |
+|-----------|------|
+| **MVP 2.0 Ready** | Phase 1 + 4 完成 |
+| **Research Crawler Ready** | Phase 2 + 3 完成 |
+| **Production Crawler Ready** | Phase 5 + 6 完成 |
+
+---
+
+# 14. 參考文件
+
+詳細架構請參考：
+- [ROADMAP.md](./ROADMAP.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)

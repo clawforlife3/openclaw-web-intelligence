@@ -2,6 +2,15 @@
 
 > 為 OpenClaw Agent 打造的網頁資料獲取工具，支援搜尋、擷取、網站地圖建構、爬蟲與快取。
 
+## ⚡ 目前版本
+
+| 版本 | 狀態 | 說明 |
+|------|------|------|
+| **MVP 1.0** | ✅ 已完成 | 基本功能可用 |
+| **MVP 2.0** | ⏳ 規劃中 | 補齊與強化 |
+
+詳細發展規劃請參考 [ROADMAP.md](./docs/ROADMAP.md)。
+
 ## 功能特色
 
 - **🔍 搜尋（Search）**：整合 DDGS 搜尋引擎，可依關鍵字搜尋網頁結果
@@ -324,10 +333,46 @@ MIT License
 
 | 文件                                                                           | 說明                                                     |
 | ------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| [ROADMAP.md](./docs/ROADMAP.md)                                               | 發展路線圖 - MVP 1.0 → 2.0 → Research → Production     |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md)                                     | 詳細架構說明 - 分層設計與模組職責                        |
 | [PRD](./docs/openclaw-web-intelligence-prd.md)                                 | 產品需求文件 - 定義產品目標、功能範圍與成功指標          |
 | [SDD](./docs/openclaw-web-intelligence-sdd.md)                                 | 技術架構文件 - 系統架構、模組設計與技術決策              |
 | [User Stories](./docs/openclaw-web-intelligence-user-stories.md)               | 使用者故事 - 以使用者角度描述功能需求                    |
 | [API Spec](./docs/openclaw-web-intelligence-api-spec.md)                       | API 規格文件 - 所有 Operation 的 Request/Response Schema |
+| [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md)   | 實作計畫 - MVP 2.0 詳細工作拆解                         |
+
+---
+
+## 🏗️ 未來架構（MVP 2.0+）
+
+```mermaid
+flowchart TB
+    Client[Client] --> Gateway
+    Gateway --> Fetch
+    Fetch --> Extract
+    Extract --> Crawl
+    Crawl --> Storage
+    
+    Fetch --> Static[Static Fetch]
+    Fetch --> Browser[Headless Browser]
+    
+    Extract --> Generic[Generic]
+    Extract --> MainContent[Main Content]
+    Extract --> Structured[Site-Specific]
+    
+    Storage --> Cache[Request Cache]
+    Storage --> PageCache[Page Cache]
+    Storage --> DB[(SQLite)]
+```
+
+### MVP 2.0 規劃功能
+- 統一 extraction pipeline
+- 雙層快取（request + page）
+- Playwright browser fallback
+- robots.txt 解析
+- Structured extraction（三層設計）
+
+詳見 [ROADMAP.md](./docs/ROADMAP.md) 與 [ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
 | [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md) | 實作計畫 - 4 週 MVP 開發路線圖                           |
 
 所有文件皆存放於 `docs/` 目錄下。

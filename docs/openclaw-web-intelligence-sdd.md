@@ -1,6 +1,8 @@
 # OpenClaw Web Intelligence Gateway — Software Design Document (SDD)
 
 > Related docs:
+> - [ROADMAP.md](./ROADMAP.md) - 發展路線圖
+> - [ARCHITECTURE.md](./ARCHITECTURE.md) - 詳細架構說明
 > - `openclaw-web-intelligence-prd.md`
 > - `openclaw-web-intelligence-user-stories.md`
 > - `openclaw-web-intelligence-api-spec.md`
@@ -18,6 +20,7 @@
 
 - 統一 web retrieval abstraction
 - 先支援 MVP：search / extract / map / crawl
+- 支援 MVP 2.0 演進：browser rendering、structured extraction、robots.txt
 - 讓 browser interaction 能後續平順接入
 - 明確切分 storage / cache / monitoring / safety
 - 與 OpenClaw skill/tool workflow 保持低耦合整合

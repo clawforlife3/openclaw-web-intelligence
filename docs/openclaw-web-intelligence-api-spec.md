@@ -2,6 +2,8 @@
 
 > API style: internal service / library contract first, HTTP transport optional.
 
+> **注意**：本文件描述 v1 API 規格。MVP 2.0 規劃中的欄位（如 `renderMode`、`robotsMode`、`structured` kinds）已在 schema 中預留，實作細節請參考 [ARCHITECTURE.md](./ARCHITECTURE.md)。
+
 ---
 
 # 1. Executive Summary
