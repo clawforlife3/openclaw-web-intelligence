@@ -32,3 +32,4 @@ export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../res
 export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from '../research/analysis.js';
 export { getRelatedRegisteredTasks, listRegisteredTasks, loadRegisteredTask } from '../research/taskRegistry.js';
 export { buildTopicMonitoringDigest, listMonitoringDeliveries } from '../research/delivery.js';
+export { processDueMonitorTopicTasks } from '../research/monitoringRunner.js';

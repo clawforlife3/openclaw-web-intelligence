@@ -99,6 +99,12 @@ export function listMonitorTopicTasks(): StoredMonitorTopicTask[] {
     .filter((task): task is StoredMonitorTopicTask => Boolean(task));
 }
 
+export function listDueMonitorTopicTasks(now = new Date()): StoredMonitorTopicTask[] {
+  return listMonitorTopicTasks()
+    .filter((task) => task.nextRunAt && new Date(task.nextRunAt) <= now)
+    .sort((a, b) => (a.nextRunAt ?? '').localeCompare(b.nextRunAt ?? ''));
+}
+
 export function updateMonitorTopicTask(
   taskId: string,
   updates: Partial<StoredMonitorTopicTask>,

@@ -19,6 +19,7 @@
     "task-registry": "tsx src/scripts/run-task-registry.ts",
     "crawl-domain": "tsx src/scripts/run-crawl-domain.ts",
     "monitor-topic": "tsx src/scripts/run-monitor-topic.ts",
+    "monitor-cycle": "tsx src/scripts/run-monitor-cycle.ts",
     "map": "tsx src/scripts/run-map.ts",
     "crawl": "tsx src/scripts/run-crawl.ts",
     "monitor": "tsx src/scripts/run-monitor.ts",
