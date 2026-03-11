@@ -3,7 +3,7 @@
 > 為 OpenClaw Agent 設計的 autonomous web research skill：topic planning、discovery、fetch/extract、domain crawl、topic monitoring、evidence-backed reporting。
 
 - GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
-- Current status: **Single-agent research baseline 已可用，正補齊 pre-multi-agent orchestration**
+- Current status: **Single-agent pre-multi-agent usable baseline**
 - 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
 - PRD：[`docs/openclaw-web-intelligence-prd.md`](./docs/openclaw-web-intelligence-prd.md)
 - SDD：[`docs/openclaw-web-intelligence-sdd.md`](./docs/openclaw-web-intelligence-sdd.md)
@@ -38,7 +38,8 @@ topic -> planner -> discovery -> retrieval/extraction -> corpus -> report
 ### 新的 task-level 入口
 - **Research Topic**：輸入 topic，自動產生 query、收集 sources、做 domain expansion、抽取 documents、生成 structured report
 - **Crawl Domain**：輸入 domain，回傳 categorized URLs 與 recommended extraction targets
-- **Monitor Topic**：輸入 topic + watch domains，建立 recurring 監控、trend diff 與關聯 research report
+- **Monitor Topic**：輸入 topic + watch domains，建立 recurring 監控、trend diff、digest 與關聯 research report
+- **Task Briefing**：輸入 task id 或 topic，回傳整合後的 summary / highlights / related tasks
 
 ### 已完成能力
 - **Search**：用 DDGS 做網頁搜尋
@@ -53,6 +54,7 @@ topic -> planner -> discovery -> retrieval/extraction -> corpus -> report
 - **Robots Policy v1**：strict / balanced / off
 - **Monitor / Diff v1**：baseline snapshot + field diff
 - **Monitoring Trend Reporting**：new / persistent / dropped signals + run history baseline
+- **Monitoring Delivery / Briefing**：task registry、topic digest、task briefing、topic briefing
 - **Sitemap Ingestion v1**：sitemap.xml 發現 URL，與 map/crawl 整合
 - **Retry Classification v1**：標準化 retry reason 分類、fetch outcome 追蹤、shell detection 標記
 - **Host Policy Memory v1**：每個 host 的 fetch 歷史，動態調整 routing
@@ -108,6 +110,7 @@ Agent / CLI
        -> static fetch ----\
        -> browser fetch ----> extract pipeline -> cache -> observability
   -> queue / worker / redis / task store
+  -> task registry / briefing / monitoring deliveries
   -> proxy pool / rate limiter / anti-bot / session store
   -> corpus scoring / near-dedup / trend-aware report
   -> metrics / dashboard / health
@@ -128,6 +131,16 @@ ALLOW_LOCAL_LISTEN_TESTS=1 npm run test:proxy
 
 # 觀測摘要
 npm run dashboard
+
+# task / topic briefing
+npm run briefing -- --task-id=<id>
+npm run briefing -- --topic="品牌監控"
+
+# 監控週期 runner
+npm run monitor-cycle
+
+# task registry
+npm run task-registry
 ```
 
 ---

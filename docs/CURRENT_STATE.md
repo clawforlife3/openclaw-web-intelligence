@@ -11,7 +11,7 @@
 專案目前應被視為：
 
 - 底層 `retrieval / crawl / anti-bot / queue / observability` 基礎已相對成熟
-- 上層 `autonomous research orchestration` 已有可用的 single-agent baseline
+- 上層 `autonomous research orchestration` 已有可用版 single-agent baseline
 - 產品已從 `web crawler gateway` 轉向 `OpenClaw autonomous web research skill`
 
 目前已落地的主線能力：
@@ -25,6 +25,8 @@
 - corpus scoring / near-dedup / thin filtering / domain diversity baseline
 - structured research analysis reports + coverage/trend signals
 - monitor-to-research orchestration + run history/trend baseline
+- task registry / task briefing / topic briefing baseline
+- bounded recurring monitoring cycle baseline
 - research task persistence / resume baseline
 
 ## Completion Estimate
@@ -33,13 +35,13 @@
 
 若依據最新 `PRD / SDD / User Stories` 的產品範圍評估：
 
-- **Autonomous Web Research Skill 整體完成度：約 65%–75%**
-- 建議對外溝通時以 **約 70%** 作為目前整體進度
+- **Autonomous Web Research Skill 整體完成度：約 75%–85%**
+- 建議對外溝通時以 **約 80%** 作為目前整體進度
 
 ### Split View
 
 - **底層 Web Intelligence / Retrieval Infrastructure：約 85%–95%**
-- **上層 Autonomous Research Skill Productization：約 65%–75%**
+- **上層 Autonomous Research Skill Productization：約 75%–85%**
 
 > 先前文件中的 `95%–98%` 比較接近底層 crawler / retrieval hardening，不適合作為目前產品整體完成度。
 
@@ -47,15 +49,15 @@
 
 | Epic | Scope | Estimated Progress | Current State |
 |------|-------|--------------------|---------------|
-| Epic 1 | Skill Gateway and Task Lifecycle | 82% | `research_topic` / `crawl_domain` / `monitor_topic` 已有 baseline，含 `get/list/resume/rerun` |
+| Epic 1 | Skill Gateway and Task Lifecycle | 88% | `research_topic` / `crawl_domain` / `monitor_topic` 已有 baseline，含 `get/list/resume/rerun`，另有 task/topic briefing |
 | Epic 2 | Planning and Query Generation | 72% | planner 已能依 topic/goal 產生 queries、source types、stop conditions |
 | Epic 3 | Discovery and Candidate URL Collection | 70% | 已有 search harvesting，`research_topic` 已接 promising domain expansion 與 sitemap-aware map baseline |
 | Epic 4 | Retrieval and Fetch Strategy | 85% | static/browser/proxy/session/challenge/rate limit 基礎已相對完整 |
-| Epic 5 | Extraction and Document Normalization | 72% | 已產出 normalized research documents，但 research-first schema normalization 尚未完全深化 |
+| Epic 5 | Extraction and Document Normalization | 80% | 已產出 normalized research documents，且已有 research-first structured normalization baseline |
 | Epic 6 | Corpus Processing | 70% | 已有 exact dedup / near-dedup / thin-content filtering / diversity baseline；canonical clustering 仍不足 |
 | Epic 7 | Analysis and Reporting | 72% | 已有 structured report / coverage / trend signals / comparison baseline；contradiction 與更深 timeline 尚缺 |
-| Epic 8 | Monitoring and Recurring Intelligence | 75% | recurring baseline、run history、run-to-run diff/trend report、關聯 research report 已完成 |
-| Epic 9 | Reliability, Checkpointing, and Operations | 75% | queue/checkpoint/metrics/health 基線已具備；真正長時 recurring orchestration 還未完整打通 |
+| Epic 8 | Monitoring and Recurring Intelligence | 82% | recurring baseline、run history、run-to-run diff/trend report、關聯 research report、topic digest、cycle runner 已完成 |
+| Epic 9 | Reliability, Checkpointing, and Operations | 80% | queue/checkpoint/metrics/health 基線已具備；runner lease/bounded cycle 已完成 |
 
 ## Implemented Capability Snapshot
 
@@ -68,6 +70,7 @@
 - `monitor_topic`
 - research task `get/list/resume`
 - monitor task `get/list/rerun`
+- task / topic briefing
 
 目前狀態：
 
@@ -126,6 +129,7 @@
 - normalized extracted document output
 - structured extraction baseline
 - site-specific extractors baseline
+- research-first structured normalization baseline
 
 目前狀態：
 
@@ -174,11 +178,14 @@
 - planner/search-driven target refresh baseline
 - monitor task 關聯 research report baseline
 - run history + new/persistent/dropped signal reporting baseline
+- topic digest / task briefing baseline
+- bounded recurring cycle runner baseline
 
 目前狀態：
 
 - 已不只是 page diff，而是 recurring topic intelligence baseline
-- 尚缺更產品化的 digest / alert packaging
+- 已具 task/topic digest 與 bounded cycle
+- 尚缺更完整 alert routing 與 external delivery
 
 ### 9. Reliability / Ops
 
@@ -207,6 +214,11 @@
 - `235bc87` Connect topic monitoring to research reports
 - `f24ba4c` Add monitoring trend and run history reporting
 - `651a603` Strengthen single-agent research discovery and reporting
+- `95e6edd` Add research contradictions and monitoring digests
+- `8db4957` Add unified task registry and delivery abstraction
+- `fd95c5c` Normalize research structured fields and topic digests
+- `8a6aad1` Add recurring monitoring cycle runner
+- `8b0a1ad` Add task and topic research briefings
 
 ## Main Gaps
 
@@ -220,12 +232,13 @@
 
 3. **Reporting quality**
    - comparison 報告已可用，但仍偏 baseline
-   - contradiction / deeper timeline analysis 尚未完成
-   - report 還缺更產品化的 digest / sectioning
+   - contradiction 已有 heuristic baseline，但 deeper timeline / stronger agreement analysis 尚未完成
+   - report 還缺更產品化的 final sectioning
 
 4. **Monitoring maturity**
    - monitor 已形成 `new findings / persistent signals / dropped signals` baseline
-   - 尚未形成更高階的 digest / alert routing
+   - 已有 digest / briefing / cycle runner baseline
+   - 尚未形成更高階的 external alert routing
 
 5. **Operations completeness**
    - 真 Redis / proxy integration 仍需在完整環境驗證
@@ -238,10 +251,10 @@
 ### Current Priority
 
 1. richer contradiction / agreement detection
-2. stronger structured extraction normalization
-3. recurring topic intelligence alerts / digests
-4. recurring research orchestration 的長時驗證
-5. 統一 task registry / cross-task orchestration model
+2. recurring topic intelligence external alert routing
+3. recurring research orchestration 的長時驗證
+4. final report sectioning / output polish
+5. feed discovery / frontier persistence
 
 ### Later-phase Work
 
@@ -249,7 +262,7 @@
 
 ## Bottom Line
 
-如果從新產品定義來看，專案已經跨過「只是 crawler」的階段，進入了可用的 single-agent research skill baseline。
+如果從新產品定義來看，專案已經跨過「只是 crawler」的階段，進入了可用的 single-agent research skill 版本。
 
 它仍然不是完成品，但在 multi-agent 之前最重要的單代理主路徑已經大致成形。
 
