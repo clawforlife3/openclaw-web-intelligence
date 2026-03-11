@@ -8,6 +8,7 @@ export interface RoutedFetchRequest extends StaticFetchRequest {
   renderMode?: RouteInput['renderMode'];
   htmlHint?: string;
   previousConfidence?: number;
+  hostPolicyStrategy?: 'static' | 'browser' | 'unknown';
 }
 
 export interface RoutedFetchResult {
@@ -23,6 +24,7 @@ export async function fetchWithRouter(request: RoutedFetchRequest): Promise<Rout
     url: request.url,
     htmlHint: request.htmlHint,
     previousConfidence: request.previousConfidence,
+    hostPolicyStrategy: request.hostPolicyStrategy,
   });
 
   try {

@@ -9,6 +9,7 @@ import { ExtractError } from '../../types/errors.js';
 import { evaluateRobotsPolicy, type RobotsMode, type RobotsEvaluation } from './robotsPolicy.js';
 import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js';
 import { classifyOutcome, isShellDetectionReason } from '../retry/retryClassifier.js';
+import { recordFetchOutcome, getPreferredStrategy } from '../retry/hostPolicyMemory.js';
 
 interface QueueItem {
   url: string;
@@ -88,6 +89,15 @@ async function fetchPage(url: string, cache: PageCache) {
     };
   }
 
+  // Get host policy before making fetch decision
+  let hostPolicyStrategy: 'static' | 'browser' | 'unknown' = 'unknown';
+  try {
+    const host = new URL(url).hostname;
+    hostPolicyStrategy = getPreferredStrategy(host);
+  } catch {
+    // Ignore URL parsing errors
+  }
+
   const routed = await fetchWithRouter({
     mode: 'crawl',
     url,
@@ -95,6 +105,7 @@ async function fetchPage(url: string, cache: PageCache) {
     timeoutMs: 15_000,
     retryMax: 1,
     userAgent: 'OpenClaw-Web-Intelligence/0.1',
+    hostPolicyStrategy,
   });
 
   let result = routed.fetchResult;
@@ -132,6 +143,14 @@ async function fetchPage(url: string, cache: PageCache) {
 
   // Classify the outcome with retry metadata
   const classification = classifyOutcome(fetchOutcome, retryReason, autoRetried);
+
+  // Record outcome to host policy memory
+  try {
+    const host = new URL(url).hostname;
+    recordFetchOutcome(host, classification.outcome, classification.wasShellDetection);
+  } catch {
+    // Ignore URL parsing errors for policy recording
+  }
 
   cache.set(url, result);
   return {

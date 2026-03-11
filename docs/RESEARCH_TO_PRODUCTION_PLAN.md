@@ -44,6 +44,7 @@
 - Monitor / Diff v1
 - Sitemap ingestion v1
 - Retry classification v1
+- Host policy memory v1
 
 ### 目前尚未成熟的部分
 - sitemap ingestion
@@ -348,7 +349,7 @@ flowchart LR
 ## Near-term (Research Strengthening)
 1. ~~Sitemap ingestion~~ ✅ 已完成
 2. ~~Retry classification~~ ✅ 已完成
-3. Host policy memory
+3. ~~Host policy memory~~ ✅ 已完成
 4. Site-specific structured extraction
 5. Browser ops / deployment docs
 6. Lightweight per-domain rate limiting

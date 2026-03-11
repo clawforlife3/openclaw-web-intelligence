@@ -7,6 +7,7 @@ export interface RouteInput {
   url?: string;
   htmlHint?: string;
   previousConfidence?: number;
+  hostPolicyStrategy?: 'static' | 'browser' | 'unknown';
 }
 
 export interface RouteDecision {
@@ -64,6 +65,27 @@ export function route(input: RouteInput): RouteDecision {
       strategy: 'static',
       allowFallback: false,
       reason: 'User explicitly requested static rendering.',
+    };
+  }
+
+  // Use host policy memory if available
+  if (input.hostPolicyStrategy === 'browser' && input.mode !== 'search') {
+    return {
+      mode: input.mode,
+      strategy: 'browser',
+      allowFallback: true,
+      fallbackStrategy: 'static',
+      reason: 'Host policy memory suggests browser rendering for this host.',
+    };
+  }
+
+  if (input.hostPolicyStrategy === 'static' && input.mode !== 'search') {
+    return {
+      mode: input.mode,
+      strategy: 'static',
+      allowFallback: true,
+      fallbackStrategy: 'browser',
+      reason: 'Host policy memory suggests static rendering for this host.',
     };
   }
 

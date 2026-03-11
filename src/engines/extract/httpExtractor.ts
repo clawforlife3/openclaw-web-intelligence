@@ -5,6 +5,7 @@ import { browserFetch } from '../../fetch/browserFetcher.js';
 import { fetchWithRouter } from '../../fetch/fetchWithRouter.js';
 import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipeline.js';
 import { logExtractRequest } from '../../observability/requestLogger.js';
+import { getPreferredStrategy, recordFetchOutcome } from '../retry/hostPolicyMemory.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
 import { ExtractRequestSchema, ExtractResponseSchema, type ExtractResponse, type RetryReason } from '../../types/schemas.js';
@@ -103,6 +104,15 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
         }
       } else if (!fetchResult) {
         fromPageCache = false;
+        // Get host policy before making fetch decision
+        let hostPolicyStrategy: 'static' | 'browser' | 'unknown' = 'unknown';
+        try {
+          const host = new URL(url).hostname;
+          hostPolicyStrategy = getPreferredStrategy(host);
+        } catch {
+          // Ignore URL parsing errors
+        }
+
         const routed = await fetchWithRouter({
           mode: 'extract',
           url,
@@ -110,6 +120,7 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
           timeoutMs: input.timeoutMs,
           retryMax: input.retryMax,
           userAgent: input.userAgent,
+          hostPolicyStrategy,
         });
         fetchResult = routed.fetchResult;
         initialStrategy = routed.decision.strategy;
@@ -171,6 +182,17 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
         retryCount: autoRetried ? 1 : 0,
         wasShellDetection: retryReason ? ['js_app_shell_detected', 'noscript_shell_detected', 'dom_shell_detected'].includes(retryReason) : false,
       };
+
+      // Record outcome to host policy memory
+      const outcome = autoRetried ? 'success_retry' : (finalStrategy === 'browser' ? 'success_browser' : 'success_static');
+      try {
+        const host = new URL(url).hostname;
+        const wasShell = retryReason ? ['js_app_shell_detected', 'noscript_shell_detected', 'dom_shell_detected'].includes(retryReason) : false;
+        recordFetchOutcome(host, outcome, wasShell);
+      } catch {
+        // Ignore URL parsing errors for policy recording
+      }
+
       documents.push(document);
     }
 
