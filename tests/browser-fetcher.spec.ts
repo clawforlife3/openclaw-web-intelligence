@@ -15,6 +15,7 @@ const launch = vi.fn();
 const connectOverCDP = vi.fn();
 const contexts = vi.fn();
 const storageState = vi.fn();
+const pageHtml = '<html><head><title>Browser Page</title></head><body><h1>Hello</h1></body></html>';
 
 vi.mock('playwright', () => ({
   chromium: {
@@ -34,7 +35,7 @@ describe('browserFetch', () => {
     allHeaders.mockResolvedValue({ 'content-type': 'text/html' });
     status.mockReturnValue(200);
     pageUrl.mockReturnValue('https://example.com/final');
-    content.mockResolvedValue('<html><head><title>Browser Page</title></head><body><h1>Hello</h1></body></html>');
+    content.mockResolvedValue(pageHtml);
     screenshot.mockResolvedValue(Buffer.from('png'));
     goto.mockResolvedValue({ status, allHeaders });
     closePage.mockResolvedValue(undefined);
@@ -106,5 +107,26 @@ describe('browserFetch', () => {
     expect(closeBrowser).not.toHaveBeenCalled();
     expect(closePage).toHaveBeenCalled();
     expect(result.finalUrl).toBe('https://example.com/final');
+  });
+
+  it('suggests remote CDP when browser challenge is encountered in launch mode', async () => {
+    content.mockResolvedValue('<html><body>g-recaptcha challenge</body></html>');
+
+    await expect(browserFetch({
+      url: 'https://example.com/login',
+      timeoutMs: 10_000,
+      retryMax: 0,
+      userAgent: 'test-agent',
+    })).rejects.toMatchObject({
+      code: 'CHALLENGE_REQUIRED',
+      details: {
+        browserRuntimeMode: 'launch',
+        suggestedBrowserMode: 'remote-cdp',
+        suggestedEnv: {
+          OPENCLAW_BROWSER_REMOTE_CDP_URL: 'http://127.0.0.1:9222',
+          OPENCLAW_BROWSER_ATTACH_ONLY: 'true',
+        },
+      },
+    });
   });
 });

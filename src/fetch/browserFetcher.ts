@@ -266,7 +266,25 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       domain: getDomainFromUrl(request.url),
       blocked: err instanceof ExtractError && (err.code === 'ANTI_BOT_BLOCKED' || err.code === 'CHALLENGE_REQUIRED'),
     });
-    if (err instanceof ExtractError) throw err;
+    if (err instanceof ExtractError) {
+      const runtime = getBrowserRuntimeConfig();
+      if (
+        (err.code === 'ANTI_BOT_BLOCKED' || err.code === 'CHALLENGE_REQUIRED')
+        && runtime.mode !== 'remote-cdp'
+      ) {
+        throw new ExtractError(err.code, err.message, err.retryable, {
+          ...err.details,
+          browserRuntimeMode: runtime.mode,
+          suggestedBrowserMode: 'remote-cdp',
+          suggestedEnv: {
+            OPENCLAW_BROWSER_REMOTE_CDP_URL: 'http://127.0.0.1:9222',
+            OPENCLAW_BROWSER_ATTACH_ONLY: 'true',
+          },
+          nextStep: 'Retry with a remote CDP browser attached to an already logged-in desktop profile, or complete manual verification first.',
+        });
+      }
+      throw err;
+    }
 
     throw new ExtractError('BROWSER_UNAVAILABLE', `Browser fetch failed for ${request.url}`, true, {
       url: request.url,
