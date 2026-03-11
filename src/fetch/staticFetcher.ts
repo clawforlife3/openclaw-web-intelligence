@@ -59,13 +59,12 @@ function buildRequestHeaders(request: StaticFetchRequest): Record<string, string
 export async function staticFetch(request: StaticFetchRequest): Promise<StaticFetchResult> {
   let lastErr: unknown;
 
-  // Apply evasion delay and get evasion headers if enabled
   const evasion = getEvasionManager();
-  if (evasion) {
-    await evasion.delay();
-  }
 
   for (let attempt = 0; attempt <= request.retryMax; attempt += 1) {
+    if (evasion) {
+      await evasion.delay();
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), request.timeoutMs);
 

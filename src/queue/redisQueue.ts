@@ -100,7 +100,7 @@ export class RedisQueue {
     await this.redis.lrem(
       `processing:${this.config.queueName}:${this.config.workerId}`,
       0,
-      JSON.stringify({ jobId })
+      jobId
     );
 
     // Clean up job key
@@ -128,7 +128,7 @@ export class RedisQueue {
     await this.redis.lrem(
       `processing:${this.config.queueName}:${this.config.workerId}`,
       0,
-      JSON.stringify({ jobId })
+      jobId
     );
 
     // Clean up job key
@@ -203,6 +203,36 @@ export class RedisQueue {
 
   async getWorkers(): Promise<string[]> {
     return this.redis.smembers(`workers:${this.config.queueName}`);
+  }
+
+  async reclaimStaleJobs(maxProcessingAgeMs = 5 * 60 * 1000): Promise<string[]> {
+    const reclaimed: string[] = [];
+    const keys = await this.redis.keys(`processing:${this.config.queueName}:*`);
+
+    for (const key of keys) {
+      const workerJobIds = await this.redis.lrange(key, 0, -1);
+      for (const jobId of workerJobIds) {
+        const jobJson = await this.redis.get(`job:${jobId}`);
+        if (!jobJson) {
+          await this.redis.lrem(key, 0, jobId);
+          continue;
+        }
+
+        const job: CrawlJob = JSON.parse(jobJson);
+        const startedAt = job.startedAt ? new Date(job.startedAt).getTime() : 0;
+        if (!startedAt || Date.now() - startedAt <= maxProcessingAgeMs) continue;
+
+        job.status = 'queued';
+        delete job.workerId;
+        delete job.startedAt;
+        await this.redis.setex(`job:${job.jobId}`, this.config.jobTtlSeconds, JSON.stringify(job));
+        await this.redis.lrem(key, 0, jobId);
+        await this.redis.rpush(`queue:${this.config.queueName}`, JSON.stringify(job));
+        reclaimed.push(jobId);
+      }
+    }
+
+    return reclaimed;
   }
 
   async cleanup(): Promise<void> {

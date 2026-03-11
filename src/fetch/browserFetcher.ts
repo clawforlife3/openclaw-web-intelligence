@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ExtractError } from '../types/errors.js';
+import { getEvasionManager } from '../anti-bot/evasion.js';
 import type { StaticFetchRequest, StaticFetchResult } from './staticFetcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -50,19 +51,33 @@ function normalizeHeaders(headers: { [key: string]: string }): Record<string, st
 
 export async function browserFetch(request: BrowserFetchRequest): Promise<BrowserFetchResult> {
   const playwright = await loadPlaywright();
+  const evasion = getEvasionManager();
   let browser: Awaited<ReturnType<PlaywrightModule['chromium']['launch']>> | undefined;
   let screenshotPath: string | undefined;
 
   try {
+    if (evasion) {
+      await evasion.delay();
+    }
+
+    const session = evasion?.getSession();
+    const fingerprint = session?.fingerprint;
+
     browser = await playwright.chromium.launch({
       headless: true,
       proxy: request.proxyUrl ? { server: request.proxyUrl } : undefined,
     });
     const context = await browser.newContext({
-      userAgent: request.userAgent,
-      viewport: { width: 1440, height: 900 },
-      locale: 'en-US',
-      timezoneId: 'Asia/Taipei',
+      userAgent: session?.userAgent || request.userAgent,
+      viewport: (() => {
+        const raw = fingerprint?.screen;
+        if (!raw) return { width: 1440, height: 900 };
+        const [w, h] = raw.split('x').map((v) => parseInt(v, 10));
+        return { width: w || 1440, height: h || 900 };
+      })(),
+      locale: session?.language?.split(',')[0] || 'en-US',
+      timezoneId: fingerprint?.timezone || 'Asia/Taipei',
+      extraHTTPHeaders: evasion?.getHeaders(),
     });
 
     const page = await context.newPage();
@@ -78,8 +93,11 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
     }
 
     const statusCode = response.status();
-    if (statusCode === 403 || statusCode === 429) {
-      throw new ExtractError('ANTI_BOT_BLOCKED', `Blocked by anti-bot or rate limiting: ${statusCode}`, true, {
+    const html = await page.content();
+
+    const analysis = evasion?.analyzeResponse(statusCode, normalizeHeaders(await response.allHeaders()), html);
+    if (analysis?.blocked) {
+      throw new ExtractError('ANTI_BOT_BLOCKED', analysis.reason || `Blocked by anti-bot or rate limiting: ${statusCode}`, true, {
         url: request.url,
         status: statusCode,
         via: 'browser',
@@ -92,8 +110,6 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
         via: 'browser',
       });
     }
-
-    const html = await page.content();
 
     if (request.screenshot) {
       screenshotPath = makeScreenshotPath();
