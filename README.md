@@ -547,6 +547,123 @@ const check = await monitor({
 
 ---
 
+## Production 進階功能
+
+### Proxy Pool
+
+```typescript
+import { createProxyPool, getProxyPool } from 'openclaw-web-intelligence';
+
+// 建立 proxy pool
+const pool = createProxyPool({
+  proxies: [
+    'http://user:pass@proxy1:8080',
+    'http://user:pass@proxy2:8080',
+    'http://user:pass@proxy3:8080',
+  ],
+  strategy: 'round-robin',  // random | least-used
+  minHealthThreshold: 0.3,
+});
+
+// 取得 pool 統計
+console.log(pool.getStats());
+// { total: 3, healthy: 3, unhealthy: 0 }
+
+// 手動新增/移除 proxy
+pool.addProxy('http://new-proxy:8080');
+pool.removeProxy('proxy_xxx');
+
+// 啟動健康檢查（每 60 秒）
+pool.startHealthCheck();
+```
+
+### Anti-bot Evasion
+
+```typescript
+import { createEvasionManager } from 'openclaw-web-intelligence';
+
+const evasion = createEvasionManager({
+  minDelayMs: 3000,    // 最小請求間隔
+  maxDelayMs: 10000,   // 最大請求間隔
+  rotateUserAgent: true,
+});
+
+// 請求前會自動 delay + 輪換 UA
+// 自動偵測 403/429/blocking keywords
+```
+
+### Advanced Rate Limiting
+
+```typescript
+import { createAdvancedLimiter } from 'openclaw-web-intelligence';
+
+const limiter = createAdvancedLimiter({
+  domains: {
+    'example.com': {
+      requestsPerSecond: 2,
+      burst: 5,
+      cooldownMs: 30000,
+    },
+  },
+  global: {
+    maxConcurrent: 10,
+    requestsPerSecond: 5,
+  },
+});
+
+// 使用
+await limiter.acquire('example.com');
+// ... 執行請求 ...
+limiter.release('example.com');
+
+// 被擋時 backoff
+await limiter.backoff('example.com');
+```
+
+### Redis Queue (多 Worker 協調)
+
+```bash
+# 環境變數
+export REDIS_URL=redis://localhost:6379
+export PROXY_LIST=http://proxy1:8080,http://proxy2:8080
+export RPS=2
+export MAX_CONCURRENT=5
+
+# 啟動 Worker
+npm run worker
+```
+
+```typescript
+import { createRedisQueue, createProxyPool, createEvasionManager } from 'openclaw-web-intelligence';
+
+// 初始化所有元件
+const pool = createProxyPool({ proxies: [...] });
+const evasion = createEvasionManager({ ... });
+const limiter = createAdvancedLimiter({ ... });
+
+// 建立 Queue
+const queue = createRedisQueue({
+  redisUrl: 'redis://localhost:6379',
+  queueName: 'crawl-jobs',
+});
+
+// 新增 Job
+await queue.enqueue({
+  jobId: 'job_001',
+  urls: ['https://example.com/page1', 'https://example.com/page2'],
+  config: { maxDepth: 2, limit: 50 },
+});
+
+// Worker 處理
+const job = await queue.dequeue();
+if (job) {
+  const result = await crawl(job.config);
+  await queue.complete(job.jobId, result);
+}
+```
+
+---
+
 ## Repo 內附 Skill
 
 本 repo 已內附一個可直接引用的 skill：
