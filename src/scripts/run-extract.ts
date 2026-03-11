@@ -18,9 +18,10 @@ function getArgList(flag: string): string[] {
 }
 
 const urlArg = getArg('url');
+const includeStructured = getArg('include-structured') === 'true';
 
 if (!urlArg) {
-  console.error('Usage: npm run extract -- --url https://example.com [--allow-domains=example.com] [--deny-domains=bad.com]');
+  console.error('Usage: npm run extract -- --url https://example.com [--allow-domains=example.com] [--deny-domains=bad.com] [--render-mode=auto|static|browser] [--include-structured=true]');
   process.exit(1);
 }
 
@@ -29,6 +30,8 @@ try {
     urls: [urlArg],
     allowDomains: getArgList('allow-domains'),
     denyDomains: getArgList('deny-domains'),
+    renderMode: (getArg('render-mode') as 'auto' | 'static' | 'browser' | undefined) ?? 'auto',
+    includeStructured,
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {

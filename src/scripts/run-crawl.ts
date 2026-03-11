@@ -12,9 +12,11 @@ function getArg(flag: string): string | undefined {
 }
 
 const url = getArg('url');
+const includeStructured = getArg('include-structured') === 'true';
+const robotsMode = (getArg('robots-mode') as 'strict' | 'balanced' | 'off' | undefined) ?? 'balanced';
 
 if (!url) {
-  console.error('Usage: npm run crawl -- --url https://example.com [--max-depth=2] [--limit=10]');
+  console.error('Usage: npm run crawl -- --url https://example.com [--max-depth=2] [--limit=10] [--robots-mode=strict|balanced|off] [--include-structured=true]');
   process.exit(1);
 }
 
@@ -23,6 +25,8 @@ try {
     seedUrl: url,
     maxDepth: parseInt(getArg('max-depth') || '2', 10),
     limit: parseInt(getArg('limit') || getArg('max-pages') || '10', 10),
+    robotsMode,
+    includeStructured,
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {

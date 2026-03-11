@@ -44,13 +44,15 @@
 - OpenClaw-facing adapter
 - docs + examples
 
-## MVP 2.0 Deliverables（規劃中）
-- 統一 extraction pipeline
-- 雙層快取（request + page）
-- Playwright browser fetcher
-- robots.txt 解析
-- Structured extraction
-- Per-domain rate limiting
+## MVP 2.0 Deliverables（現況更新）
+- [x] 統一 extraction pipeline（Phase 1 第一版已落地）
+- [x] 雙層快取（request + page，含 conditional revalidation）
+- [x] Playwright browser fetcher 第一版（browser fetch 可用；仍需補 binaries/ops 文件）
+- [x] robots.txt 解析（strict/balanced/off 第一版已落地於 map/crawl）
+- [x] robots decision trace / crawl debug metadata 第一版
+- [x] Structured extraction（article/docs/product/forum 基礎版已接入 extract/crawl pipeline）
+- [ ] Per-domain rate limiting
+- [x] Monitor / Diff 第一版（baseline snapshot + title/text/structured/urlCount diff）
 
 ## Deferred
 - login session support
@@ -361,7 +363,7 @@ Use `openclaw-web-intelligence-user-stories.md` to generate stories and tasks by
 - [ ] 重構 httpExtractor.ts 為通用抽取模組
 - [ ] 讓 crawler.ts 共用抽取邏輯
 - [ ] 實作 request cache（基於 request hash）
-- [ ] 實作 page cache（基於 URL + ETag/Last-Modified）
+- [x] 實作 page cache（基於 URL + ETag/Last-Modified）
 - [ ] 實作 per-URL TTL
 - [ ] 實作 stale-while-revalidate
 

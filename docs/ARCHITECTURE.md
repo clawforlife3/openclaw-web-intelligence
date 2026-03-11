@@ -92,18 +92,28 @@ flowchart LR
 - 適合靜態頁面
 
 #### Browser Fetcher
-- 使用 Playwright
+- 使用 Playwright（`browserFetcher.ts` 第一版已落地）
 - 支援 JS rendering
 - 可設定 UA、viewport、timezone
 - 支援 screenshot（debug 用）
+- 若套件或 browser binaries 不可用，回傳 `BROWSER_UNAVAILABLE`，由 router/fallback flow 接手
 
 #### Fetch Router
 根據以下條件決策：
 1. 使用者明確指定 `renderMode=browser`
-2. Static fetch 文字量太少
+2. Static fetch 後文字量太少
 3. HTML 裡 framework 特徵明顯（React/Vue/Angular）
 4. Title/canonical/body 空洞
 5. Domain 在 browser-required 清單
+
+目前第一版 auto-detection 已落地：
+- `auto` 模式先走 static
+- extract / crawl 若偵測到 JS app shell / low confidence / thin static content，會自動 browser retry
+- response 會保留 fetch decision metadata 方便 debug
+
+另外已補上 cache revalidation 實作：
+- static page cache 命中時，會用 `If-None-Match` / `If-Modified-Since` 做 conditional revalidation
+- 304 時沿用 cached snapshot；200 時刷新 page cache 與後續抽取內容
 
 ### 2.4 Extraction Layer（擷取層）
 
@@ -134,7 +144,8 @@ flowchart TB
 
 **Layer 3: 站型專用**
 - Pluggable extractor
-- 支援：generic、docs、article、product、forum
+- 目前 v1 已支援：docs、article、product、forum
+- generic 仍保留為 fallback document model
 
 #### Structured Output Schema
 ```typescript

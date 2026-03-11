@@ -1,5 +1,9 @@
-import * as cheerio from 'cheerio';
 import { z } from 'zod';
+import { RequestCache } from '../../cache/requestCache.js';
+import { PageCache } from '../../cache/pageCache.js';
+import { browserFetch } from '../../fetch/browserFetcher.js';
+import { fetchWithRouter } from '../../fetch/fetchWithRouter.js';
+import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipeline.js';
 import { logExtractRequest } from '../../observability/requestLogger.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
@@ -18,81 +22,6 @@ function isDomainAllowed(targetHost: string, allowDomains: string[], denyDomains
   return allowDomains.map(normalizeDomain).some((a) => host === a || (host.length > a.length && host.endsWith(`.${a}`)));
 }
 
-function htmlToText(html: string): string {
-  const $ = cheerio.load(html);
-  return $('body').text().replace(/\s+/g, ' ').trim();
-}
-
-function htmlToMarkdownLite(html: string): string {
-  const $ = cheerio.load(html);
-  const title = $('title').first().text().trim();
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-  return `${title ? `# ${title}\n\n` : ''}${bodyText}`.trim();
-}
-
-// Simple confidence scoring based on content quality
-function calculateConfidence(html: string, text: string): number {
-  const hasTitle = /<title>[^<]+<\/title>/i.test(html);
-  const hasMetaDesc = /<meta[^>]+name="description"[^>]*>/i.test(html);
-  const hasContent = text.length > 100;
-  const hasLinks = /<a[^>]+href/i.test(html);
-  
-  let score = 0.5;
-  if (hasTitle) score += 0.15;
-  if (hasMetaDesc) score += 0.15;
-  if (hasContent) score += 0.1;
-  if (hasLinks) score += 0.1;
-  
-  return Math.min(1, Math.max(0, score));
-}
-
-// Simple source quality based on HTTP status
-function calculateSourceQuality(status: number): number {
-  if (status >= 200 && status < 300) return 0.95;
-  if (status >= 300 && status < 400) return 0.8;
-  if (status >= 400 && status < 500) return 0.5;
-  return 0.3;
-}
-
-async function fetchWithRetry(url: string, options: { timeoutMs: number; retryMax: number; userAgent: string }) {
-  let lastErr: unknown;
-
-  for (let attempt = 0; attempt <= options.retryMax; attempt += 1) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), options.timeoutMs);
-    try {
-      const res = await fetch(url, {
-        redirect: 'follow',
-        signal: ctrl.signal,
-        headers: {
-          'user-agent': options.userAgent,
-        },
-      });
-      clearTimeout(timer);
-
-      if (!res.ok) {
-        throw new ExtractError('FETCH_HTTP_ERROR', `HTTP ${res.status} on ${url}`, res.status >= 500, {
-          url,
-          status: res.status,
-        });
-      }
-      return res;
-    } catch (err) {
-      clearTimeout(timer);
-      lastErr = err;
-      if (attempt < options.retryMax) {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
-      }
-    }
-  }
-
-  if (lastErr instanceof ExtractError) throw lastErr;
-  if (lastErr instanceof Error && lastErr.name === 'AbortError') {
-    throw new ExtractError('FETCH_TIMEOUT', `Timeout while fetching ${url}`, true, { url, timeoutMs: options.timeoutMs });
-  }
-  throw new ExtractError('INTERNAL_ERROR', `Failed to fetch ${url}`, true, { url });
-}
-
 type ExtractRequestInput = z.input<typeof ExtractRequestSchema>;
 
 export async function extract(request: ExtractRequestInput): Promise<ExtractResponse> {
@@ -102,6 +31,24 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
 
   try {
     const input = ExtractRequestSchema.parse(request);
+    const requestCache = new RequestCache<ExtractResponse>('extract', { enabled: input.cacheTtlSeconds > 0, ttlSeconds: input.cacheTtlSeconds });
+    const pageCache = new PageCache({ enabled: input.cacheTtlSeconds > 0, ttlSeconds: input.cacheTtlSeconds });
+
+    const cached = requestCache.get(input as unknown as Record<string, unknown>);
+    if (cached) {
+      return {
+        ...cached,
+        meta: {
+          schemaVersion: cached.meta?.schemaVersion ?? 'v1',
+          ...cached.meta,
+          requestId,
+          traceId,
+          cached: true,
+          tookMs: Date.now() - started,
+        },
+      };
+    }
+
     const documents = [] as ExtractResponse['data']['documents'];
 
     for (const url of input.urls) {
@@ -113,73 +60,115 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
         });
       }
 
-      const res = await fetchWithRetry(url, {
-        timeoutMs: input.timeoutMs,
-        retryMax: input.retryMax,
-        userAgent: input.userAgent,
-      });
-      const html = await res.text();
+      const cachedPage = pageCache.get(url);
+      let fetchResult = cachedPage?.fetchResult;
+      let fromPageCache = true;
+      let initialStrategy: 'static' | 'browser' = input.renderMode === 'browser' ? 'browser' : 'static';
+      let finalStrategy: 'static' | 'browser' = initialStrategy;
+      let retryReason: string | undefined;
+      let autoRetried = false;
+      let fallbackUsed = false;
+      let routeReason = 'Cached page result reused.';
 
-      let $: cheerio.CheerioAPI;
-      try {
-        $ = cheerio.load(html);
-      } catch {
-        throw new ExtractError('PARSE_ERROR', `Unable to parse HTML from ${url}`, false, { url });
+      if (cachedPage && cachedPage.fetchResult.via !== 'browser' && input.renderMode !== 'browser') {
+        try {
+          const routed = await fetchWithRouter({
+            mode: 'extract',
+            url,
+            renderMode: 'static',
+            timeoutMs: input.timeoutMs,
+            retryMax: input.retryMax,
+            userAgent: input.userAgent,
+            conditional: {
+              etag: cachedPage.validators.etag,
+              lastModified: cachedPage.validators.lastModified,
+              previousResult: cachedPage.fetchResult,
+            },
+          });
+
+          fetchResult = routed.fetchResult;
+          initialStrategy = routed.decision.strategy;
+          finalStrategy = fetchResult.via === 'browser' ? 'browser' : 'static';
+          fallbackUsed = routed.fallbackUsed;
+          fromPageCache = fetchResult.cacheValidation?.notModified === true;
+          routeReason = fromPageCache
+            ? 'Static cache revalidated by 304 Not Modified.'
+            : 'Static cache revalidated and refreshed with latest content.';
+          pageCache.set(url, fetchResult);
+        } catch {
+          fetchResult = cachedPage.fetchResult;
+          fromPageCache = true;
+          finalStrategy = fetchResult.via === 'browser' ? 'browser' : 'static';
+          routeReason = 'Static cache revalidation failed; fallback to cached snapshot.';
+        }
+      } else if (!fetchResult) {
+        fromPageCache = false;
+        const routed = await fetchWithRouter({
+          mode: 'extract',
+          url,
+          renderMode: input.renderMode,
+          timeoutMs: input.timeoutMs,
+          retryMax: input.retryMax,
+          userAgent: input.userAgent,
+        });
+        fetchResult = routed.fetchResult;
+        initialStrategy = routed.decision.strategy;
+        finalStrategy = fetchResult.via === 'browser' ? 'browser' : 'static';
+        fallbackUsed = routed.fallbackUsed;
+        routeReason = routed.decision.reason;
+        pageCache.set(url, fetchResult);
+      } else {
+        finalStrategy = fetchResult.via === 'browser' ? 'browser' : 'static';
       }
 
-      const text = htmlToText(html);
-      const markdown = htmlToMarkdownLite(html);
-      const confidence = calculateConfidence(html, text);
-      const sourceQuality = calculateSourceQuality(res.status);
+      let document = extractDocument(fetchResult, {
+        includeHtml: input.includeHtml,
+        includeLinks: input.includeLinks,
+        includeStructured: input.includeStructured,
+      });
 
-      const links = input.includeLinks
-        ? $('a[href]')
-            .map((_, el) => $(el).attr('href'))
-            .get()
-            .filter((v): v is string => !!v)
-            .map((href) => {
-              try {
-                return new URL(href, res.url).toString();
-              } catch {
-                return null;
-              }
-            })
-            .filter((v): v is string => !!v)
-        : [];
-
-      const title = $('title').first().text().trim() || undefined;
-      const canonicalRaw = $('link[rel="canonical"]').attr('href');
-      let canonical: string | undefined;
-      if (canonicalRaw) {
-        try {
-          canonical = new URL(canonicalRaw, res.url).toString();
-        } catch {
-          canonical = undefined;
+      if (!fromPageCache && input.renderMode === 'auto' && finalStrategy === 'static') {
+        const retryDecision = evaluateBrowserRetry(fetchResult, document);
+        if (retryDecision.shouldRetryWithBrowser) {
+          retryReason = retryDecision.reason;
+          try {
+            const browserResult = await browserFetch({
+              url,
+              timeoutMs: input.timeoutMs,
+              retryMax: input.retryMax,
+              userAgent: input.userAgent,
+              waitUntil: 'domcontentloaded',
+            });
+            fetchResult = browserResult;
+            finalStrategy = 'browser';
+            autoRetried = true;
+            pageCache.set(url, fetchResult);
+            document = extractDocument(fetchResult, {
+              includeHtml: input.includeHtml,
+              includeLinks: input.includeLinks,
+              includeStructured: input.includeStructured,
+            });
+          } catch (err) {
+            if (!(err instanceof ExtractError && err.code === 'BROWSER_UNAVAILABLE')) {
+              throw err;
+            }
+          }
         }
       }
 
-      documents.push({
-        url,
-        finalUrl: res.url,
-        title,
-        markdown,
-        text,
-        html: input.includeHtml ? html : null,
-        links,
-        metadata: {
-          title,
-          description: $('meta[name="description"]').attr('content') || undefined,
-          canonical,
-          language: $('html').attr('lang') || undefined,
-          statusCode: res.status,
-          contentType: res.headers.get('content-type') || undefined,
-        },
-        structured: {},
-        confidence,
-        sourceQuality,
-        untrusted: true,
-        extractedAt: new Date().toISOString(),
-      });
+      document.cache = {
+        hit: fromPageCache,
+        ttlSeconds: input.cacheTtlSeconds,
+      };
+      document.fetch = {
+        strategy: finalStrategy,
+        initialStrategy,
+        autoRetried,
+        fallbackUsed,
+        reason: routeReason,
+        retryReason,
+      };
+      documents.push(document);
     }
 
     const output: ExtractResponse = {
@@ -194,8 +183,8 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
       },
     };
 
-    // Validate against schema
     ExtractResponseSchema.parse(output);
+    requestCache.set(input as unknown as Record<string, unknown>, output);
 
     await logExtractRequest({
       requestId,

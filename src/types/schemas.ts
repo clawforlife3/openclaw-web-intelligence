@@ -48,6 +48,15 @@ export const DocumentMetadataSchema = z.object({
   contentType: z.string().optional(),
 });
 
+export const FetchDecisionMetaSchema = z.object({
+  strategy: z.enum(['static', 'browser']),
+  initialStrategy: z.enum(['static', 'browser']).optional(),
+  autoRetried: z.boolean().optional(),
+  fallbackUsed: z.boolean().optional(),
+  reason: z.string().optional(),
+  retryReason: z.string().optional(),
+});
+
 export const ExtractedDocumentSchema = z.object({
   url: z.string().url(),
   finalUrl: z.string().url(),
@@ -62,6 +71,7 @@ export const ExtractedDocumentSchema = z.object({
   sourceQuality: z.number().min(0).max(1).optional().default(0.8),
   untrusted: z.boolean().optional().default(true),
   cache: CacheMetaSchema.optional(),
+  fetch: FetchDecisionMetaSchema.optional(),
   extractedAt: z.string(),
 });
 
@@ -136,12 +146,29 @@ export const MapSummarySchema = z.object({
   stoppedReason: z.enum(['limit_reached', 'depth_limit', 'scope_exhausted', 'error']),
 });
 
+export const RobotsDecisionSchema = z.object({
+  url: z.string().url(),
+  allowed: z.boolean(),
+  reason: z.enum(['allowed', 'disallowed', 'unavailable', 'off']),
+  robotsUrl: z.string().url().optional(),
+  phase: z.enum(['seed', 'enqueue']).optional(),
+});
+
+export const CrawlDebugSchema = z.object({
+  robots: z.object({
+    decisions: z.array(RobotsDecisionSchema),
+    blockedCount: z.number().int(),
+    unavailableCount: z.number().int(),
+  }).optional(),
+});
+
 export const MapResponseSchema = z.object({
   success: z.literal(true),
   data: z.object({
     seedUrl: z.string(),
     urls: z.array(MapResultSchema),
     summary: MapSummarySchema,
+    debug: CrawlDebugSchema.optional(),
   }),
   meta: CommonMetaSchema.optional(),
 });
@@ -179,6 +206,7 @@ export const CrawlResponseSchema = z.object({
     seedUrl: z.string(),
     documents: z.array(ExtractedDocumentSchema),
     summary: CrawlSummarySchema,
+    debug: CrawlDebugSchema.optional(),
   }),
   meta: CommonMetaSchema.optional(),
 });
@@ -194,22 +222,39 @@ export const MonitorRequestSchema = z.object({
   diffPolicy: z.object({
     mode: z.enum(['hash', 'field', 'full']).optional().default('field'),
     fields: z.array(z.string()).optional(),
-  }),
+  }).optional().default({ mode: 'field' }),
   notifyPolicy: z.object({
     cooldownMinutes: z.number().int().optional().default(180),
     onlyOnChange: z.boolean().optional().default(true),
-  }),
+  }).optional().default({ cooldownMinutes: 180, onlyOnChange: true }),
   execution: z.object({
     operation: z.enum(['extract', 'crawl']).optional().default('extract'),
     options: z.record(z.unknown()).optional(),
-  }),
+  }).optional().default({ operation: 'extract' }),
+});
+
+export const MonitorSnapshotSchema = z.object({
+  title: z.string().optional(),
+  textHash: z.string(),
+  structuredHash: z.string(),
+  urlCount: z.number().int().optional(),
+  extractedAt: z.string(),
+});
+
+export const MonitorChangeSchema = z.object({
+  changed: z.boolean(),
+  fields: z.array(z.string()),
+  summary: z.array(z.string()),
 });
 
 export const MonitorResponseSchema = z.object({
   success: z.literal(true),
   data: z.object({
     monitorJobId: z.string(),
-    status: z.enum(['created', 'updated', 'deleted']),
+    status: z.enum(['created', 'updated', 'deleted', 'checked']),
+    changed: z.boolean().optional(),
+    change: MonitorChangeSchema.optional(),
+    snapshot: MonitorSnapshotSchema.optional(),
   }),
   meta: CommonMetaSchema.optional(),
 });
@@ -259,6 +304,7 @@ export const ErrorResponseSchema = z.object({
 export type CommonMeta = z.infer<typeof CommonMetaSchema>;
 export type CacheMeta = z.infer<typeof CacheMetaSchema>;
 export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;
+export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 export type ExtractResponse = z.infer<typeof ExtractResponseSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
@@ -268,6 +314,8 @@ export type MapResponse = z.infer<typeof MapResponseSchema>;
 export type CrawlRequest = z.infer<typeof CrawlRequestSchema>;
 export type CrawlResponse = z.infer<typeof CrawlResponseSchema>;
 export type MonitorRequest = z.infer<typeof MonitorRequestSchema>;
+export type MonitorSnapshot = z.infer<typeof MonitorSnapshotSchema>;
+export type MonitorChange = z.infer<typeof MonitorChangeSchema>;
 export type MonitorResponse = z.infer<typeof MonitorResponseSchema>;
 export type CacheOptions = z.infer<typeof CacheOptionsSchema>;
 export type CacheEntry = z.infer<typeof CacheEntrySchema>;

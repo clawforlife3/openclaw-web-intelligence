@@ -97,7 +97,12 @@
   "text": "Example",
   "html": null,
   "metadata": {},
-  "structured": {},
+  "structured": {
+    "kind": "docs",
+    "headingTree": ["Getting Started", "Install"],
+    "codeBlockCount": 2,
+    "navLinkCount": 8
+  },
   "links": [],
   "confidence": 0.91,
   "sourceQuality": 0.84,
@@ -107,7 +112,34 @@
     "ttlSeconds": 3600,
     "key": "extract:sha256:..."
   },
+  "fetch": {
+    "strategy": "browser",
+    "initialStrategy": "static",
+    "autoRetried": true,
+    "retryReason": "js_app_shell_detected"
+  },
   "extractedAt": "2026-03-10T06:00:00Z"
+}
+```
+
+### Crawl / Map Debug Metadata
+```json
+{
+  "debug": {
+    "robots": {
+      "decisions": [
+        {
+          "url": "https://example.com/docs",
+          "phase": "seed",
+          "allowed": true,
+          "reason": "allowed",
+          "robotsUrl": "https://example.com/robots.txt"
+        }
+      ],
+      "blockedCount": 0,
+      "unavailableCount": 0
+    }
+  }
 }
 ```
 
@@ -207,6 +239,8 @@
 - `includeLinks`: boolean optional
 - `includeStructured`: boolean optional
 - `renderMode`: `auto | static | browser`, optional, default `auto`
+  - `auto`: 預設先走 static，保留 browser fallback 路徑
+  - `browser`: 明確要求 browser；若 Playwright 套件或 browser binaries 不可用，回傳 `BROWSER_UNAVAILABLE`
 - `cacheTtlSeconds`: number optional
 - `timeoutMs`: number optional
 - `safetyMode`: `strict | balanced | off`, optional

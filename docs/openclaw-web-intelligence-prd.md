@@ -24,6 +24,19 @@
 
 ## 1.2 產品主張
 
+## 1.2A Current Delivery Status (2026-03-11)
+
+目前已經不是純規劃階段，已落地的交付包括：
+- search / extract / map / crawl 基礎能力
+- Playwright browser fetcher v1
+- auto browser fallback v1（extract / crawl）
+- robots policy v1
+- structured extraction v1
+- conditional cache revalidation
+
+因此本 PRD 仍作為產品方向文件使用，但實際完成度請以 `CURRENT_STATE.md` 與 `ROADMAP.md` 為準。
+
+
 **一句話版本：**
 
 > Search, crawl, interact, extract, and monitor the web for OpenClaw agents.

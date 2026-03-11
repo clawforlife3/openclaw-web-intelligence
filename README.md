@@ -1,378 +1,547 @@
-# OpenClaw Web Intelligence Gateway 🕸️
+# OpenClaw Web Intelligence Gateway
 
-> 為 OpenClaw Agent 打造的網頁資料獲取工具，支援搜尋、擷取、網站地圖建構、爬蟲與快取。
+> 為 OpenClaw Agent 設計的網頁情報取得工具：搜尋、抽取、網站地圖、爬取、browser fallback、structured extraction、monitor/diff。
 
-## ⚡ 目前版本
+- GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
+- Current status: **MVP 1.0 完成 / MVP 2.0 first-usable**
+- 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
+- 路線圖：[`docs/ROADMAP.md`](./docs/ROADMAP.md)
+- 架構文件：[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 
-| 版本 | 狀態 | 說明 |
-|------|------|------|
-| **MVP 1.0** | ✅ 已完成 | 基本功能可用 |
-| **MVP 2.0** | ⏳ 規劃中 | 補齊與強化 |
+---
 
-詳細發展規劃請參考 [ROADMAP.md](./docs/ROADMAP.md)。
+## Executive Summary
 
-## 功能特色
+`openclaw-web-intelligence` 的定位不是通用大型爬蟲平台，而是 **給 Agent 用的網頁資料獲取層**。
 
-- **🔍 搜尋（Search）**：整合 DDGS 搜尋引擎，可依關鍵字搜尋網頁結果
-- **📄 擷取（Extract）**：對單一 URL 進行 HTTP 請求，取得 Markdown/Text 格式內容
-- **🗺️ 網站地圖（Map）**：BFS 演算法探索網站結構，回傳所有發現的頁面
-- **🕷️ 爬蟲（Crawl）**：結合網站探索與內容擷取，一次完成發現 + 擷取
-- **💾 快取（Cache）**：內建 JSON 檔案快取，支援 TTL 過期與命中/未命中統計
-- **📊 監控（Monitor）**：頁面變更偵測與差異比對（Post-MVP）
+它解決的核心問題是：
+1. Agent 需要搜尋和抓內容
+2. 不同網站需要不同抓取策略（static / browser）
+3. 抓回來的資料要能直接進入後續 reasoning，而不是只有一坨 HTML
+4. 同一頁反覆抓取需要快取與 revalidation，避免浪費
+5. 後續還要支援變更監控（monitor / diff）
 
-## 快速開始
+所以這個專案採用的是 **search + extract + map + crawl + cache + monitor** 的分層設計，並把「資料品質」放在第一位。
 
-### 安裝依賴
+---
+
+## 這個專案能做什麼
+
+### 已完成能力
+- **Search**：用 DDGS 做網頁搜尋
+- **Extract**：抓單頁內容，輸出 markdown / text / metadata / links / structured
+- **Map**：用 BFS 探索站內 URL 結構
+- **Crawl**：邊探索邊擷取內容
+- **Dual Cache**：request cache + page cache
+- **Conditional Revalidation**：支援 ETag / Last-Modified / 304 reuse
+- **Browser Fallback**：static 不夠時自動改走 Playwright
+- **Structured Extraction v1.1**：article / docs / product / forum
+- **Robots Policy v1**：strict / balanced / off
+- **Monitor / Diff v1**：baseline snapshot + field diff
+
+### 目前最適合的用途
+- 技術文件站抓取（docs / guides / references）
+- blog / article 研究
+- 小中型站點內容蒐集
+- OpenClaw 研究型 agent 的 web intelligence backend
+- 後續變更監控的 baseline 能力
+
+### 目前還不適合的用途
+- 大規模 production crawling
+- 高頻跨網域分散式抓取
+- 重度 anti-bot 對抗
+- 需要完整 proxy pool / queue / distributed worker 的場景
+
+---
+
+## 運作原理
+
+## 1) Search：先找來源
+
+當你不知道要抓哪幾頁時，先走 search。
+
+```text
+query -> DDGS adapter -> ranked results -> agent 選擇候選來源
+```
+
+用途：
+- 廣搜主題
+- 找 docs / blog / issue / changelog
+- 幫 extract / crawl 找入口 URL
+
+---
+
+## 2) Extract：對單頁做高品質抽取
+
+`extract()` 的流程是：
+
+```text
+request
+  -> schema validation
+  -> request cache lookup
+  -> page cache lookup / revalidation
+  -> router decision (static/browser)
+  -> fetch
+  -> extract pipeline
+  -> optional structured extraction
+  -> confidence/sourceQuality/fetch metadata
+  -> response cache write
+```
+
+### Extract 的核心設計
+
+#### A. 不是直接抓 HTML 就結束
+它會把頁面轉成：
+- `markdown`
+- `text`
+- `metadata`
+- `links`
+- `structured`
+- `confidence`
+- `sourceQuality`
+- `fetch decision metadata`
+
+也就是說，輸出是 **給 agent 直接吃的文件物件**，不是單純 raw HTML。
+
+#### B. 先 static，必要時 browser
+預設 `renderMode=auto`：
+- 先走 static fetch
+- 若判斷像 JS shell / noscript shell / thin DOM / low-confidence，就 browser retry
+
+#### C. 保留策略決策資訊
+每個 document 都會附帶：
+- `fetch.strategy`
+- `fetch.initialStrategy`
+- `fetch.autoRetried`
+- `fetch.retryReason`
+- `fetch.fallbackUsed`
+
+這對 debug 與之後做 host policy memory 很重要。
+
+---
+
+## 3) Map：先看網站長什麼樣
+
+`map()` 不抽取完整內容，而是做 **站點結構探索**。
+
+```text
+seed URL
+  -> scope check
+  -> robots check
+  -> fetch page
+  -> extract links
+  -> BFS enqueue
+  -> discovered URL list + summary + debug
+```
+
+適合用在：
+- 先了解 docs site 結構
+- 找到 guide / api / reference / blog 分支
+- 給後續 crawl 決定抓哪些頁面
+
+---
+
+## 4) Crawl：探索 + 抽取一起做
+
+`crawl()` 是 map 與 extract 的結合：
+
+```text
+seed URL
+  -> BFS traversal
+  -> robots policy
+  -> page fetch
+  -> shared extract pipeline
+  -> document list
+  -> crawl summary
+```
+
+關鍵點：
+- `crawl` 和 `extract` 用同一套 shared extraction pipeline
+- 所以單頁抓取與整站抓取的文件格式一致
+- 這對 agent 下游非常重要，因為它不用處理兩種不同 document schema
+
+---
+
+## 5) Cache：為什麼要雙層快取
+
+這個專案不是只做一個快取，而是做兩層：
+
+### Request Cache
+以「完整 request 參數」為 key。
+
+適合解決：
+- 同樣 query / 同樣 extract request 反覆執行
+- 直接回應整包結果
+
+### Page Cache
+以「URL + 抓取結果」為核心。
+
+適合解決：
+- map / crawl / extract 共用同一頁結果
+- 支援 ETag / Last-Modified revalidation
+- 304 時可直接重用先前 snapshot
+
+### 為什麼這樣拆
+因為：
+- request cache 解決「同一請求重跑」
+- page cache 解決「同一頁被不同流程共用」
+
+這比單一 cache 更接近 crawler / retrieval 實際需求。
+
+---
+
+## 6) Browser fallback：什麼時候會啟用
+
+當 static 抓到的結果可能只是前端殼時，系統會考慮改走 browser。
+
+目前 heuristic v1.1 會看：
+- React / Next / Nuxt / Remix 類 marker
+- `noscript` 提示要開 JavaScript
+- script 過多但內容過薄
+- DOM 看起來像 app shell
+- 低 confidence 結果
+
+這一層的目標不是「永遠最聰明」，而是：
+- 先以低成本 static 為主
+- 在高機率失敗頁面再升級到 browser
+- 平衡品質與成本
+
+---
+
+## 7) Structured extraction：為什麼不是只有 text
+
+對 agent 來說，純文字常常不夠。
+
+例如：
+- article 想知道 author / publish date / section
+- docs 想知道 heading tree / code block / TOC / guide vs reference
+- product 想知道 price / currency / availability
+- forum 想知道 thread title / post count / author count
+
+因此這個專案提供 pluggable structured extractors。
+
+### 目前支援
+- `article`
+- `docs`
+- `product`
+- `forum`
+
+### docs v1.1 例子
+- `headingTree`
+- `codeBlockCount`
+- `navLinkCount`
+- `hasTableOfContents`
+- `sectionCount`
+- `wordCount`
+- `pathType`
+
+### article v1.1 例子
+- `headline`
+- `author`
+- `publishedAt`
+- `updatedAt`
+- `section`
+- `tagCount`
+- 支援 JSON-LD Article
+
+---
+
+## 8) Monitor / Diff：目前做到哪
+
+Monitor v1 已完成。
+
+### 現在能做的事
+- 對 target 建立 baseline snapshot
+- 後續再次執行時比對差異
+- 支援 `extract` / `crawl` 兩種 execution
+- 比對欄位：
+  - `title`
+  - `textHash`
+  - `structuredHash`
+  - `urlCount`
+
+### 還沒做的事
+- recurring schedule
+- alerting
+- diff history persistence
+- severity model
+
+所以目前 monitor 是 **可驗證的 engine**，但還不是完整產品化監控系統。
+
+---
+
+## 如何使用
+
+## 環境需求
+
+- Node.js 18+
+- npm
+- `ddgs` CLI（搜尋用）
+- 若要 browser fetch：Playwright + Chromium binaries
+
+### 安裝
 
 ```bash
 cd projects/openclaw-web-intelligence
 npm install
-```
-
-### 環境需求
-
-- Node.js 18+
-- npm
-- [ddgs CLI](https://github.com/BugDownLoad/ddgs)（用於搜尋功能）
-
-## CLI 命令
-
-### 1. 搜尋（Search）
-
-根據關鍵字搜尋網頁：
-
-```bash
-# 基本搜尋
-npm run search -- --query "web scraping 教學"
-
-# 限制回傳數量
-npm run search -- --query "openclaw" --max-results 5
-
-# 排除特定網域
-npm run search -- --query "python" --exclude-domains=pinterest.com,facebook.com
-```
-
-**輸出範例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "query": "web scraping 教學",
-    "results": [
-      {
-        "url": "https://example.com/article",
-        "title": "網頁爬蟲完整教學",
-        "snippet": "從基礎到進階的網頁爬蟲技術...",
-        "rank": 1,
-        "domain": "example.com"
-      }
-    ],
-    "provider": "ddgs"
-  },
-  "meta": {
-    "requestId": "req_abc123",
-    "traceId": "trace_xyz789",
-    "tookMs": 1500,
-    "schemaVersion": "v1"
-  }
-}
+npx playwright install chromium
 ```
 
 ---
 
-### 2. 擷取（Extract）
+## CLI 用法
 
-從單一 URL 擷取內容：
+## 1. Search
 
 ```bash
-# 基本擷取
-npm run extract -- --url "https://www.octoparse.com/blog/top-10-most-scraped-websites"
+npm run search -- --query "openclaw browser automation"
+npm run search -- --query "web crawler docs" --max-results 5
+npm run search -- --query "playwright docs" --exclude-domains=pinterest.com,facebook.com
+```
 
-# 只允許特定網域
+---
+
+## 2. Extract
+
+```bash
+# 基本單頁抽取
+npm run extract -- --url "https://example.com/docs/getting-started"
+
+# 明確要求 browser
+npm run extract -- --url "https://example.com/app" --render-mode=browser
+
+# auto 模式 + structured
+npm run extract -- --url "https://example.com/blog/post" --include-structured=true --render-mode=auto
+
+# 限制允許/拒絕網域
 npm run extract -- --url "https://example.com/docs" --allow-domains=example.com
-
-# 封鎖特定網域
 npm run extract -- --url "https://example.com" --deny-domains=ads.example.com
 ```
 
-**輸出欄位說明：**
-| 欄位 | 說明 |
-|------|------|
-| `url` | 原始請求 URL |
-| `finalUrl` | 最終 URL（可能因轉址而不同） |
-| `title` | 頁面標題 |
-| `markdown` | HTML 轉 Markdown 格式 |
-| `text` | 純文字內容 |
-| `metadata` | 包含 description、canonical、language 等 |
-| `links` | 頁面中所有連結 |
-| `confidence` | 擷取品質分數（0-1） |
-| `sourceQuality` | 來源品質分數（0-1） |
+### 典型輸出欄位
+- `markdown`
+- `text`
+- `metadata`
+- `links`
+- `structured`
+- `confidence`
+- `sourceQuality`
+- `fetch`
+- `cache`
 
 ---
 
-### 3. 網站地圖（Map）
-
-探索網站結構，回傳所有發現的頁面：
+## 3. Map
 
 ```bash
-# 基本探索
 npm run map -- --url "https://docs.example.com"
-
-# 限制深度與頁數
-npm run map -- --url "https://example.com" --max-depth 2 --limit 50
+npm run map -- --url "https://docs.example.com" --max-depth 2 --limit 50
+npm run map -- --url "https://docs.example.com" --robots-mode=strict
 ```
 
-**輸出範例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "seedUrl": "https://docs.example.com",
-    "urls": [
-      { "url": "https://docs.example.com", "depth": 0 },
-      { "url": "https://docs.example.com/guide", "depth": 1, "discoveredFrom": "https://docs.example.com" }
-    ],
-    "summary": {
-      "visited": 15,
-      "discovered": 42,
-      "excluded": 3,
-      "stoppedReason": "limit_reached"
-    }
-  }
-}
-```
+### 適合場景
+- 先看 docs 站結構
+- 想知道有哪些 guide / api / blog 分支
+- 幫 crawl 選入口
 
 ---
 
-### 4. 爬蟲（Crawl）
-
-結合網站探索與內容擷取：
+## 4. Crawl
 
 ```bash
-# 基本爬蟲
 npm run crawl -- --url "https://docs.example.com"
-
-# 限制深度與頁數
-npm run crawl -- --url "https://example.com/blog" --max-depth 3 --limit 20
+npm run crawl -- --url "https://docs.example.com" --max-depth 2 --limit 20 --include-structured=true
+npm run crawl -- --url "https://docs.example.com" --robots-mode=balanced --include-structured=true
 ```
 
-**輸出範例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "jobId": "job_abc123",
-    "seedUrl": "https://docs.example.com",
-    "documents": [
-      {
-        "url": "https://docs.example.com/getting-started",
-        "title": "快速開始",
-        "markdown": "# 快速開始...",
-        "confidence": 0.85,
-        "sourceQuality": 0.95
-      }
-    ],
-    "summary": {
-      "visited": 10,
-      "extracted": 10,
-      "skipped": 0,
-      "errors": 0,
-      "stoppedReason": "limit_reached"
-    }
-  }
-}
-```
+### 適合場景
+- 整批抓 docs
+- 一次拿到多頁 document objects
+- 做 agent research corpus
 
 ---
 
-### 5. 快取（Cache）
-
-管理請求快取：
+## 5. Cache
 
 ```bash
-# 查看快取統計
 npm run cache -- stats
-
-# 清除所有快取
 npm run cache -- clear
-
-# 使用快取擷取
-npm run cache -- extract --url "https://example.com"
-
-# 不使用快取（直接請求）
-npm run cache -- extract --url "https://example.com" --no-cache
 ```
 
 ---
 
-## 開發與測試
+## 作為程式庫使用
 
-### 類型檢查
+```ts
+import { search, extract, map, crawl, monitor } from './src/api/index.js';
 
-```bash
-npm run check
+const results = await search({
+  query: 'openclaw docs',
+  maxResults: 5,
+});
+
+const extracted = await extract({
+  urls: ['https://example.com/docs/getting-started'],
+  renderMode: 'auto',
+  includeStructured: true,
+  cacheTtlSeconds: 3600,
+});
+
+const crawled = await crawl({
+  seedUrl: 'https://docs.example.com',
+  maxDepth: 2,
+  limit: 10,
+  includeStructured: true,
+  robotsMode: 'balanced',
+});
+
+const monitored = await monitor({
+  targetType: 'page',
+  target: 'https://example.com/changelog',
+  schedule: 'every 1h',
+  execution: { operation: 'extract' },
+});
 ```
-
-### 執行測試
-
-```bash
-npm run test
-```
-
-### OpenClaw Skill
-
-本專案亦包裝為 OpenClaw Skill，可直接在其他 OpenClaw 專案中引用：
-
-- **Skill 位置**：`../skills/openclaw-web-intelligence/`
-- **引用方式**：參考 `SKILL.md` 文件
 
 ---
 
-## API 規格符合度
+## OpenClaw 中怎麼運用
 
-本實作完全符合 `openclaw-web-intelligence-api-spec.md` 文件定義的 v1 API 規格。
+這個專案最適合當成 OpenClaw 的 **web intelligence backend / skill backend**。
 
-### 已實作功能
+### 典型 workflow 1：研究主題
+```text
+User asks research question
+  -> search 找候選來源
+  -> extract 抓重要單頁
+  -> crawl 抓 docs/blog 補上下文
+  -> summarize / synthesize
+```
 
-| 功能         | API 規格欄位                                | 狀態 |
-| ------------ | ------------------------------------------- | ---- |
-| 請求追蹤 ID  | `meta.requestId`, `meta.traceId`            | ✅   |
-| 執行時間     | `meta.tookMs`                               | ✅   |
-| Schema 版本  | `meta.schemaVersion`                        | ✅   |
-| 信心分數     | `document.confidence`                       | ✅   |
-| 來源品質     | `document.sourceQuality`                    | ✅   |
-| 結構化資料   | `document.structured`                       | ✅   |
-| 快取中繼資料 | `document.cache`                            | ✅   |
-| 不可信標記   | `document.untrusted`                        | ✅   |
-| 網站地圖摘要 | `summary.excluded`, `summary.stoppedReason` | ✅   |
-| 爬蟲摘要     | `summary.skipped`, `jobId`                  | ✅   |
-| 搜尋排名     | `result.rank`, `result.domain`              | ✅   |
+### 典型 workflow 2：技術文件站分析
+```text
+map 看站點結構
+  -> crawl 重要分支
+  -> structured docs extraction
+  -> output heading tree / code-rich pages / references
+```
+
+### 典型 workflow 3：變更監控 baseline
+```text
+monitor 建 baseline
+  -> recurring run（未來）
+  -> compare text/structured/urlCount
+  -> trigger alert
+```
 
 ---
 
-## 錯誤處理
+## Repo 內附 Skill
 
-所有 CLI 命令都會回傳結構化錯誤：
+本 repo 已內附一個可直接引用的 skill：
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "FETCH_TIMEOUT",
-    "message": "請求超時",
-    "retryable": true,
-    "details": {
-      "url": "https://example.com",
-      "timeoutMs": 15000
-    }
-  }
-}
-```
+- `skills/openclaw-web-intelligence/SKILL.md`
 
-### 錯誤碼說明
+它的用途是：
+- 告訴 OpenClaw 什麼時候該用這個專案
+- 提供建議 workflow
+- 說明 search / extract / map / crawl / monitor 的使用時機
 
-| 錯誤碼                 | 說明                     | 可重試 |
-| ---------------------- | ------------------------ | ------ |
-| `VALIDATION_ERROR`     | 參數驗證失敗             | ❌     |
-| `DOMAIN_POLICY_DENIED` | 網域被政策拒絕           | ❌     |
-| `FETCH_TIMEOUT`        | 請求超時                 | ✅     |
-| `FETCH_HTTP_ERROR`     | HTTP 錯誤（如 404、500） | ✅     |
-| `PARSE_ERROR`          | HTML 解析失敗            | ❌     |
-| `SEARCH_ERROR`         | 搜尋引擎錯誤             | ✅     |
-| `INTERNAL_ERROR`       | 內部錯誤                 | ✅     |
+如果你想把這個 repo 當成 skill 一起分發，直接保留 `skills/` 目錄即可。
 
 ---
 
 ## 專案結構
 
-```
+```text
 openclaw-web-intelligence/
 ├── src/
-│   ├── api/                    # 公開 API 匯出
+│   ├── api/                  # 對外 API export
+│   ├── cache/                # request/page cache abstraction
 │   ├── engines/
-│   │   ├── extract/           # HTTP 擷取引擎
-│   │   ├── search/            # 搜尋引擎 adapter
-│   │   └── crawl/             # 爬蟲引擎
-│   ├── router/                # 檢索路由
-│   ├── types/
-│   │   ├── schemas.ts         # Zod API 規格
-│   │   ├── errors.ts          # 錯誤類別
-│   │   └── utils.ts           # ID 生成工具
-│   ├── observability/         # 請求日誌
-│   ├── storage/               # 快取實作
-│   └── scripts/               # CLI 入口點
-├── tests/                     # 測試檔案
-├── .cache/                    # 快取目錄（自動生成）
-└── logs/                      # 日誌目錄（自動生成）
+│   │   ├── search/           # DDGS search
+│   │   ├── extract/          # extract engine
+│   │   └── crawl/            # map / crawl / robots policy
+│   ├── extract/              # shared extract pipeline
+│   ├── fetch/                # static/browser fetchers + router wrapper
+│   ├── monitor/              # monitor / diff v1
+│   ├── observability/        # request logging
+│   ├── router/               # retrieval routing heuristics
+│   ├── scripts/              # CLI entrypoints
+│   ├── storage/              # file cache implementation
+│   └── types/                # zod schemas / errors / utils
+├── tests/
+├── docs/
+├── skills/
+├── artifacts/
+├── .cache/
+└── logs/
 ```
 
 ---
 
-## 技術棧
+## 開發與驗證
 
-- **語言**：TypeScript + Node.js（ESM）
-- **驗證**：Zod
-- **HTML 解析**：Cheerio
-- **搜尋引擎**：DDGS CLI
-- **測試框架**：Vitest
+### 型別檢查
+```bash
+npm run check
+```
+
+### 測試
+```bash
+npm run test
+```
+
+目前測試涵蓋：
+- shared extraction pipeline parity
+- browser fallback / auto-detection
+- robots policy
+- conditional cache revalidation
+- structured extraction
+- monitor / diff
 
 ---
 
-## 授權
+## 錯誤處理
 
-MIT License
+常見錯誤碼：
+
+| Code | 說明 |
+|------|------|
+| `VALIDATION_ERROR` | 請求參數不合法 |
+| `DOMAIN_POLICY_DENIED` | 網域政策阻擋 |
+| `FETCH_TIMEOUT` | 抓取逾時 |
+| `FETCH_HTTP_ERROR` | HTTP 錯誤 |
+| `BROWSER_UNAVAILABLE` | Playwright / browser binaries 不可用 |
+| `ROBOTS_POLICY_DENIED` | robots 規則拒絕 |
+| `INTERNAL_ERROR` | 其他內部錯誤 |
+
+---
+
+## 現在最值得繼續開發的方向
+
+如果目標是更強的 research crawler，建議優先順序：
+1. sitemap ingestion
+2. retry classification / host policy memory
+3. 更多 site-specific structured extraction
+4. browser ops / deployment docs
+5. per-domain rate limiting
 
 ---
 
 ## 相關文件
 
-本專案包含以下文件：
-
-| 文件                                                                           | 說明                                                     |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [ROADMAP.md](./docs/ROADMAP.md)                                               | 發展路線圖 - MVP 1.0 → 2.0 → Research → Production     |
-| [ARCHITECTURE.md](./docs/ARCHITECTURE.md)                                     | 詳細架構說明 - 分層設計與模組職責                        |
-| [PRD](./docs/openclaw-web-intelligence-prd.md)                                 | 產品需求文件 - 定義產品目標、功能範圍與成功指標          |
-| [SDD](./docs/openclaw-web-intelligence-sdd.md)                                 | 技術架構文件 - 系統架構、模組設計與技術決策              |
-| [User Stories](./docs/openclaw-web-intelligence-user-stories.md)               | 使用者故事 - 以使用者角度描述功能需求                    |
-| [API Spec](./docs/openclaw-web-intelligence-api-spec.md)                       | API 規格文件 - 所有 Operation 的 Request/Response Schema |
-| [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md)   | 實作計畫 - MVP 2.0 詳細工作拆解                         |
+- [CURRENT_STATE.md](./docs/CURRENT_STATE.md)
+- [ROADMAP.md](./docs/ROADMAP.md)
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- [PRD](./docs/openclaw-web-intelligence-prd.md)
+- [SDD](./docs/openclaw-web-intelligence-sdd.md)
+- [User Stories](./docs/openclaw-web-intelligence-user-stories.md)
+- [API Spec](./docs/openclaw-web-intelligence-api-spec.md)
+- [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md)
 
 ---
 
-## 🏗️ 未來架構（MVP 2.0+）
+## License
 
-```mermaid
-flowchart TB
-    Client[Client] --> Gateway
-    Gateway --> Fetch
-    Fetch --> Extract
-    Extract --> Crawl
-    Crawl --> Storage
-    
-    Fetch --> Static[Static Fetch]
-    Fetch --> Browser[Headless Browser]
-    
-    Extract --> Generic[Generic]
-    Extract --> MainContent[Main Content]
-    Extract --> Structured[Site-Specific]
-    
-    Storage --> Cache[Request Cache]
-    Storage --> PageCache[Page Cache]
-    Storage --> DB[(SQLite)]
-```
-
-### MVP 2.0 規劃功能
-- 統一 extraction pipeline
-- 雙層快取（request + page）
-- Playwright browser fallback
-- robots.txt 解析
-- Structured extraction（三層設計）
-
-詳見 [ROADMAP.md](./docs/ROADMAP.md) 與 [ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
-| [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md) | 實作計畫 - 4 週 MVP 開發路線圖                           |
-
-所有文件皆存放於 `docs/` 目錄下。
+MIT

@@ -1,10 +1,12 @@
 export type ExtractErrorCode =
   | 'VALIDATION_ERROR'
   | 'DOMAIN_POLICY_DENIED'
+  | 'ROBOTS_POLICY_DENIED'
   | 'SEARCH_ERROR'
   | 'FETCH_TIMEOUT'
   | 'FETCH_HTTP_ERROR'
   | 'PARSE_ERROR'
+  | 'BROWSER_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 export class ExtractError extends Error {

@@ -12,9 +12,10 @@ function getArg(flag: string): string | undefined {
 }
 
 const url = getArg('url');
+const robotsMode = (getArg('robots-mode') as 'strict' | 'balanced' | 'off' | undefined) ?? 'balanced';
 
 if (!url) {
-  console.error('Usage: npm run map -- --url https://example.com [--max-depth=2] [--limit=20]');
+  console.error('Usage: npm run map -- --url https://example.com [--max-depth=2] [--limit=20] [--robots-mode=strict|balanced|off]');
   process.exit(1);
 }
 
@@ -23,6 +24,7 @@ try {
     url,
     maxDepth: parseInt(getArg('max-depth') || '2', 10),
     limit: parseInt(getArg('limit') || getArg('max-pages') || '20', 10),
+    robotsMode,
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {

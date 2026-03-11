@@ -99,14 +99,8 @@ export class Cache {
   }
 }
 
-// Global cache instance
-let globalCache: Cache | null = null;
-
 export function getCache(options?: CacheOptions): Cache {
-  if (!globalCache) {
-    globalCache = new Cache(options);
-  }
-  return globalCache;
+  return new Cache(options);
 }
 
 // Utility: generate cache key from request

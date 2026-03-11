@@ -9,7 +9,9 @@
 | 版本 | 狀態 | 日期 |
 |------|------|------|
 | MVP 1.0 | ✅ 已完成 | 2026-03-10 |
-| MVP 2.0 | ⏳ 規劃中 | - |
+| MVP 2.0 | 🚧 進行中（多個 phase 已有第一版） | 2026-03-11 |
+
+現況總覽請參考 [CURRENT_STATE.md](./CURRENT_STATE.md)。
 
 ---
 
@@ -69,25 +71,35 @@ flowchart LR
 **詳細內容**：
 
 #### Phase 1：統一 extraction pipeline + 雙層快取
-- 重構 httpExtractor 與 crawler 共用抽取邏輯
-- 實作雙層快取（request cache + page cache）
-- 加入 ETag/Last-Modified 支援
-- 加入 per-URL TTL
+- [x] 重構 httpExtractor 與 crawler 共用抽取邏輯
+- [x] 實作雙層快取基礎（request cache + page cache）
+- [x] 加入 ETag/Last-Modified 支援
+- [ ] 加入 per-URL TTL
+
+> 備註：2026-03-11 已完成 Phase 1 第一版骨架，後續可在此基礎上接 browser / structured / robots。
 
 #### Phase 4：robots.txt 解析
-- 解析各主機的 robots.txt 政策
-- 實作 strict/lenient/off 三種模式
-- 在 frontier enqueue 前檢查
+- [x] 解析各主機的 robots.txt 政策
+- [x] 實作 strict/balanced/off 三種模式
+- [x] 在 frontier enqueue 前檢查
+- [ ] 補 crawl report / debug metadata 中的 robots decision trace
 
 #### Phase 3：Structured extraction
-- 三層設計：通用 → 主內容 → 站型
-- Pluggable extractor 架構
-- 支援 article/docs/product/forum 等類型
+- [x] 三層設計中的第一版站型 structured extraction 骨架
+- [x] Pluggable extractor 架構（article/docs/product/forum 基礎版）
+- [x] docs/article coverage 第一輪擴充（JSON-LD article、TOC/section/pathType 等）
+- [ ] 強化更多 site-specific extractor 與 schema normalization
 
 #### Phase 2：Headless browser
-- Playwright 整合
-- 自動 fallback（static → browser）
-- fetchRouter 決策邏輯
+- [x] Playwright fetcher 第一版
+- [x] fetchRouter / routing skeleton
+- [x] browser fallback skeleton（router + fetcher + fallback wiring）
+- [x] 自動 fallback（static → browser）第一版，已支援 extract / crawl
+- [x] heuristics v1.1：JS shell / noscript shell / thin DOM detection
+- [ ] host-specific heuristics / retry classification 正式版（持續調優）
+- [ ] browser binaries 安裝與運維文件
+
+> 備註：2026-03-11 已完成 Phase 2 第一版，可執行 browser fetch；部署端仍需確保 Playwright Chromium binaries 可用。
 
 ---
 
@@ -149,7 +161,7 @@ flowchart LR
 | robots.txt | ❌ | 🔄 | ✅ | ✅ |
 | Proxy routing | ❌ | ❌ | 🔄 | ✅ |
 | 分散式 | ❌ | ❌ | ❌ | 🔄 |
-| Monitor/Diff | ❌ | ❌ | 🔄 | ✅ |
+| Monitor/Diff | ❌ | ✅ v1 | 🔄 | ✅ |
 
 ---
 

@@ -26,6 +26,28 @@
 - 與 OpenClaw skill/tool workflow 保持低耦合整合
 - 以 TypeScript / Node.js 為核心
 
+## 1.3 Current Status Snapshot (2026-03-11)
+
+已落地能力：
+- search（DDGS）
+- extract / map / crawl
+- dual cache + conditional revalidation
+- Playwright browser fetcher v1
+- extract / crawl auto-detection v1
+- robots policy v1
+- structured extraction v1
+- crawl/map debug metadata（robots decision trace）
+
+仍在進行中：
+- heuristics 調優
+- browser ops/deployment 文件
+- monitor/diff
+- per-domain rate limiting
+
+詳見 `CURRENT_STATE.md`。
+
+## 1.4 Non-Goals
+
 ## 1.3 Non-Goals
 
 - MVP 不做大規模分散式 browser farm
