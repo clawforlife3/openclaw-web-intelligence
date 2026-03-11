@@ -84,6 +84,10 @@ describe('monitorTopic', () => {
     expect(result.data.reportInsights?.length).toBeGreaterThan(0);
     expect(result.data.trendSummary).toContain('Initial monitoring baseline');
     expect(result.data.persistentSignals).toHaveLength(0);
+    expect(result.data.alertSeverity).toBe('watch');
+    expect(result.data.alertTitle).toContain('品牌負評');
+    expect(result.data.digestSummary).toContain('Initial digest');
+    expect(result.data.digestBullets?.length).toBeGreaterThan(0);
   });
 
   it('persists monitoring tasks and supports reruns', async () => {
@@ -140,6 +144,8 @@ describe('monitorTopic', () => {
     expect(rerun?.data.newSignals).toContain('https://news.example.com/post');
     expect(rerun?.data.droppedSignals).toContain('https://forum.example.com/thread');
     expect(rerun?.data.trendSummary).toContain('new signals');
+    expect(rerun?.data.alertSeverity).toBe('watch');
+    expect(rerun?.data.digestSummary).toContain('Run 2 digest');
 
     const tasks = getMonitorTopicTaskList();
     expect(tasks.some((task) => task.taskId === created.data.taskId)).toBe(true);

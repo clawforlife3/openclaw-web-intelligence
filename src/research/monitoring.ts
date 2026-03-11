@@ -11,6 +11,7 @@ import { buildResearchPlan } from './planner.js';
 import { getNextMonitoringRunAt } from './monitoringScheduler.js';
 import { researchTopic } from './gateway.js';
 import { buildMonitoringTrend } from './monitoringAnalysis.js';
+import { buildMonitoringDigest } from './monitoringDigest.js';
 import {
   loadMonitorTopicTask,
   listMonitorTopicTasks,
@@ -137,6 +138,14 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     alerts,
     topic: task.request.topic,
   });
+  const digest = buildMonitoringDigest({
+    topic: task.request.topic,
+    runCount,
+    newSignals: trend.newSignals,
+    persistentSignals: trend.persistentSignals,
+    droppedSignals: trend.droppedSignals,
+    changedPages,
+  });
   const relatedResearchTaskId = researchUpdate?.taskId ?? task.latestResearchTaskId;
   const reportSummary = researchUpdate?.summary ?? task.reportSummary;
   const reportInsights = researchUpdate?.insights ?? task.reportInsights;
@@ -152,6 +161,10 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     newSignals: trend.newSignals,
     persistentSignals: trend.persistentSignals,
     droppedSignals: trend.droppedSignals,
+    alertSeverity: digest.alertSeverity,
+    alertTitle: digest.alertTitle,
+    digestSummary: digest.digestSummary,
+    digestBullets: digest.digestBullets,
     runAt: lastRunAt,
   };
 
@@ -175,6 +188,10 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     newSignals: trend.newSignals,
     persistentSignals: trend.persistentSignals,
     droppedSignals: trend.droppedSignals,
+    alertSeverity: digest.alertSeverity,
+    alertTitle: digest.alertTitle,
+    digestSummary: digest.digestSummary,
+    digestBullets: digest.digestBullets,
     runHistory: [...task.runHistory, nextRun].slice(-10),
     lastRunAt,
     nextRunAt: getNextMonitoringRunAt(task.request.schedule, new Date(lastRunAt)),
@@ -200,6 +217,10 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
       newSignals: trend.newSignals,
       persistentSignals: trend.persistentSignals,
       droppedSignals: trend.droppedSignals,
+      alertSeverity: digest.alertSeverity,
+      alertTitle: digest.alertTitle,
+      digestSummary: digest.digestSummary,
+      digestBullets: digest.digestBullets,
     },
     meta: {
       requestId,

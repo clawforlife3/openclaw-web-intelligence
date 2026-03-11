@@ -13,6 +13,10 @@ export interface StoredMonitorTopicRun {
   newSignals?: string[];
   persistentSignals?: string[];
   droppedSignals?: string[];
+  alertSeverity?: 'info' | 'watch' | 'critical';
+  alertTitle?: string;
+  digestSummary?: string;
+  digestBullets?: string[];
   runAt: string;
 }
 
@@ -35,6 +39,10 @@ export interface StoredMonitorTopicTask {
   newSignals?: string[];
   persistentSignals?: string[];
   droppedSignals?: string[];
+  alertSeverity?: 'info' | 'watch' | 'critical';
+  alertTitle?: string;
+  digestSummary?: string;
+  digestBullets?: string[];
   runHistory: StoredMonitorTopicRun[];
   lastRunAt?: string;
   nextRunAt?: string;

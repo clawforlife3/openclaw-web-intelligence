@@ -123,6 +123,69 @@ function buildUncertainties(documents: ResearchDocument[], evidence: ResearchEvi
   return notes;
 }
 
+function hasAny(text: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
+function detectDocumentClaims(document: ResearchDocument): string[] {
+  const haystack = `${document.title || ''} ${document.text}`.toLowerCase();
+  const claims: string[] = [];
+
+  if (hasAny(haystack, ['free', '免費', 'trial', '試用'])) claims.push('free_available');
+  if (hasAny(haystack, ['paid', 'pricing', 'price', 'subscription', '付費', '收費', '定價'])) claims.push('paid_required');
+  if (hasAny(haystack, ['positive', 'recommended', 'best', '推薦', '好評'])) claims.push('positive_sentiment');
+  if (hasAny(haystack, ['negative', 'complaint', 'issue', 'problem', '負評', '抱怨', '災情'])) claims.push('negative_sentiment');
+  if (hasAny(haystack, ['official', 'announcement', 'release', '公告', '官方'])) claims.push('official_signal');
+  if (hasAny(haystack, ['deprecated', 'cancelled', 'retired', '停止', '取消'])) claims.push('deprecation_signal');
+
+  return claims;
+}
+
+function buildAgreementsAndContradictions(documents: ResearchDocument[]): {
+  agreements: string[];
+  contradictions: string[];
+} {
+  const claimsByType = new Map<string, ResearchDocument[]>();
+
+  for (const document of documents) {
+    for (const claim of detectDocumentClaims(document)) {
+      claimsByType.set(claim, [...(claimsByType.get(claim) ?? []), document]);
+    }
+  }
+
+  const agreements: string[] = [];
+  const contradictions: string[] = [];
+
+  const positiveDocs = claimsByType.get('positive_sentiment') ?? [];
+  const negativeDocs = claimsByType.get('negative_sentiment') ?? [];
+  const freeDocs = claimsByType.get('free_available') ?? [];
+  const paidDocs = claimsByType.get('paid_required') ?? [];
+  const officialDocs = claimsByType.get('official_signal') ?? [];
+  const deprecatedDocs = claimsByType.get('deprecation_signal') ?? [];
+
+  if (officialDocs.length >= 2) {
+    agreements.push(`Multiple official-style sources are present (${unique(officialDocs.map((doc) => doc.domain)).join(', ')}).`);
+  }
+  if (positiveDocs.length >= 2) {
+    agreements.push(`Positive sentiment appears across multiple sources (${unique(positiveDocs.map((doc) => doc.domain)).join(', ')}).`);
+  }
+  if (negativeDocs.length >= 2) {
+    agreements.push(`Negative or complaint-oriented discussion appears across multiple sources (${unique(negativeDocs.map((doc) => doc.domain)).join(', ')}).`);
+  }
+
+  if (freeDocs.length > 0 && paidDocs.length > 0) {
+    contradictions.push(`Sources disagree on free-vs-paid availability (${unique([...freeDocs, ...paidDocs].map((doc) => doc.domain)).join(', ')}).`);
+  }
+  if (positiveDocs.length > 0 && negativeDocs.length > 0) {
+    contradictions.push(`Sources disagree on overall sentiment or quality signals (${unique([...positiveDocs, ...negativeDocs].map((doc) => doc.domain)).join(', ')}).`);
+  }
+  if (officialDocs.length > 0 && deprecatedDocs.length > 0) {
+    contradictions.push(`Official/release signals coexist with deprecation or cancellation language (${unique([...officialDocs, ...deprecatedDocs].map((doc) => doc.domain)).join(', ')}).`);
+  }
+
+  return { agreements, contradictions };
+}
+
 function buildInsights(request: ResearchTopicRequest, documents: ResearchDocument[], clusters: ResearchCluster[]): string[] {
   const insights: string[] = [];
   insights.push(`The current corpus contains ${documents.length} extracted documents grouped into ${clusters.length} thematic clusters.`);
@@ -151,6 +214,7 @@ export function buildResearchReport(input: {
   const clusters = clusterResearchDocuments(input.documents);
   const clusteredDocuments = assignClusterIds(input.documents, clusters);
   const insights = buildInsights(input.request, clusteredDocuments, clusters);
+  const agreementState = buildAgreementsAndContradictions(clusteredDocuments);
   const comparisons = input.request.goal === 'compare'
     ? extractComparisonValues(clusteredDocuments)
     : [];
@@ -163,6 +227,8 @@ export function buildResearchReport(input: {
       keyInsights: insights,
       trendSignals: buildTrendSignals(input.request, clusteredDocuments, clusters),
       uncertainties: buildUncertainties(clusteredDocuments, input.evidence),
+      agreements: agreementState.agreements,
+      contradictions: agreementState.contradictions,
       comparisons,
       clusters,
       citations: input.evidence,
