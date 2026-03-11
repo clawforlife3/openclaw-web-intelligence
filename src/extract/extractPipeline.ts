@@ -10,7 +10,12 @@ export interface ExtractPipelineOptions {
 
 export interface BrowserRetryDecision {
   shouldRetryWithBrowser: boolean;
-  reason?: string;
+  reason?: 'js_app_shell_detected'
+    | 'noscript_shell_detected'
+    | 'dom_shell_detected'
+    | 'low_confidence'
+    | 'low_text_high_script_ratio'
+    | 'thin_static_content';
 }
 
 function htmlToText(html: string): string {

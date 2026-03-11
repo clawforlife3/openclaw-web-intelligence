@@ -4,10 +4,11 @@ import { browserFetch } from '../../fetch/browserFetcher.js';
 import { fetchWithRouter } from '../../fetch/fetchWithRouter.js';
 import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipeline.js';
 import { generateRequestId, generateTraceId, generateJobId } from '../../types/utils.js';
-import { MapRequestSchema, CrawlRequestSchema, type MapResponse, type CrawlResponse } from '../../types/schemas.js';
+import { MapRequestSchema, CrawlRequestSchema, type MapResponse, type CrawlResponse, type RetryReason, type FetchOutcome } from '../../types/schemas.js';
 import { ExtractError } from '../../types/errors.js';
 import { evaluateRobotsPolicy, type RobotsMode, type RobotsEvaluation } from './robotsPolicy.js';
 import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js';
+import { classifyOutcome, isShellDetectionReason } from '../retry/retryClassifier.js';
 
 interface QueueItem {
   url: string;
@@ -80,7 +81,10 @@ async function fetchPage(url: string, cache: PageCache) {
       fallbackUsed: false,
       routeReason: 'Cached page result reused.',
       autoRetried: false,
-      retryReason: undefined as string | undefined,
+      retryReason: undefined,
+      outcome: 'success_static' as const,
+      retryCount: 0,
+      wasShellDetection: false,
     };
   }
 
@@ -96,7 +100,8 @@ async function fetchPage(url: string, cache: PageCache) {
   let result = routed.fetchResult;
   let finalStrategy: 'static' | 'browser' = result.via === 'browser' ? 'browser' : 'static';
   let autoRetried = false;
-  let retryReason: string | undefined;
+  let retryReason: RetryReason | undefined;
+  let fetchOutcome: FetchOutcome = finalStrategy === 'browser' ? 'success_browser' : 'success_static';
 
   if (finalStrategy === 'static') {
     const staticDocument = extractDocument(result, { includeLinks: true, includeHtml: false, includeStructured: false });
@@ -114,13 +119,19 @@ async function fetchPage(url: string, cache: PageCache) {
         result = browserResult;
         finalStrategy = 'browser';
         autoRetried = true;
+        fetchOutcome = 'success_retry';
       } catch (err) {
         if (!(err instanceof ExtractError && err.code === 'BROWSER_UNAVAILABLE')) {
           throw err;
         }
+        // Browser unavailable, keep static result
+        fetchOutcome = 'failed_browser';
       }
     }
   }
+
+  // Classify the outcome with retry metadata
+  const classification = classifyOutcome(fetchOutcome, retryReason, autoRetried);
 
   cache.set(url, result);
   return {
@@ -132,6 +143,9 @@ async function fetchPage(url: string, cache: PageCache) {
     routeReason: routed.decision.reason,
     autoRetried,
     retryReason,
+    outcome: classification.outcome,
+    retryCount: classification.retryCount,
+    wasShellDetection: classification.wasShellDetection,
   };
 }
 
@@ -340,6 +354,9 @@ export async function crawl(request: z.input<typeof CrawlRequestSchema>): Promis
           fallbackUsed: page.fallbackUsed,
           reason: page.routeReason,
           retryReason: page.retryReason,
+          outcome: page.outcome,
+          retryCount: page.retryCount,
+          wasShellDetection: page.wasShellDetection,
         };
         documents.push(document);
       } catch {
@@ -374,6 +391,9 @@ export async function crawl(request: z.input<typeof CrawlRequestSchema>): Promis
           fallbackUsed: page.fallbackUsed,
           reason: page.routeReason,
           retryReason: page.retryReason,
+          outcome: page.outcome,
+          retryCount: page.retryCount,
+          wasShellDetection: page.wasShellDetection,
         };
         documents.push(document);
 

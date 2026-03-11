@@ -40,6 +40,7 @@
 - **Robots Policy v1**：strict / balanced / off
 - **Monitor / Diff v1**：baseline snapshot + field diff
 - **Sitemap Ingestion v1**：sitemap.xml 發現 URL，與 map/crawl 整合
+- **Retry Classification v1**：標準化 retry reason 分類、fetch outcome 追蹤、shell detection 標記
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）

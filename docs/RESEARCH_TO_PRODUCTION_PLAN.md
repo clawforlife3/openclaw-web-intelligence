@@ -43,6 +43,7 @@
 - Structured extraction v1.1
 - Monitor / Diff v1
 - Sitemap ingestion v1
+- Retry classification v1
 
 ### 目前尚未成熟的部分
 - sitemap ingestion
@@ -326,7 +327,7 @@ flowchart LR
 | Browser fallback | ✅ | ✅ | ✅ |
 | Structured extraction | 🔥 High | ✅ | ✅ |
 | Sitemap ingestion | ~~🔥 High~~ ✅ 已完成 | ✅ | ✅ |
-| Retry classification | 🔥 High | ✅ | ✅ |
+| Retry classification | ~~🔥 High~~ ✅ 已完成 | ✅ | ✅ |
 | Host policy memory | 🔥 High | ✅ | ✅ |
 | Browser ops docs | High | ✅ | ✅ |
 | Per-domain rate limiting | Medium | High | ✅ |
@@ -346,7 +347,7 @@ flowchart LR
 
 ## Near-term (Research Strengthening)
 1. ~~Sitemap ingestion~~ ✅ 已完成
-2. Retry classification
+2. ~~Retry classification~~ ✅ 已完成
 3. Host policy memory
 4. Site-specific structured extraction
 5. Browser ops / deployment docs

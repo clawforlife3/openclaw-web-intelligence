@@ -19,12 +19,13 @@
 - stronger research-crawler heuristics v1.1（JS shell / noscript shell / thin DOM detection）
 - richer structured extraction v1.1（docs/article coverage expanded）
 - sitemap ingestion v1（sitemap.xml discovery + map/crawl integration）
+- retry classification v1（standardized retry reasons + outcome tracking + shell detection）
 
 ## Completion Estimate
 
 ### Research Crawler Ready
-- **完成度：約 82%–88%**
-- 尚缺：browser ops 文件、site-specific structured coverage、retry classification、host policy memory
+- **完成度：約 85%–90%**
+- 尚缺：browser ops 文件、site-specific structured coverage、host policy memory
 
 ### Production Crawler
 - **完成度：約 35%–45%**
@@ -77,7 +78,7 @@
 
 ### Near-term（Research Strengthening）
 1. ~~補 sitemap ingestion~~ ✅ 已完成
-2. 補 retry classification
+2. ~~補 retry classification~~ ✅ 已完成
 3. 補 host policy memory
 4. 擴 site-specific structured extraction coverage
 5. 寫 browser ops / deployment 文件

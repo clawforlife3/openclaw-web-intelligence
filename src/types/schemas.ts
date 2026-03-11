@@ -48,13 +48,38 @@ export const DocumentMetadataSchema = z.object({
   contentType: z.string().optional(),
 });
 
+export const RetryReasonSchema = z.enum([
+  'js_app_shell_detected',
+  'noscript_shell_detected',
+  'dom_shell_detected',
+  'low_confidence',
+  'low_text_high_script_ratio',
+  'thin_static_content',
+  'http_error_retry',
+  'timeout_retry',
+]);
+
+export const FetchOutcomeSchema = z.enum([
+  'success_static',
+  'success_browser',
+  'success_retry',
+  'failed_static',
+  'failed_browser',
+  'blocked_robots',
+  'blocked_policy',
+  'error',
+]);
+
 export const FetchDecisionMetaSchema = z.object({
   strategy: z.enum(['static', 'browser']),
   initialStrategy: z.enum(['static', 'browser']).optional(),
   autoRetried: z.boolean().optional(),
   fallbackUsed: z.boolean().optional(),
   reason: z.string().optional(),
-  retryReason: z.string().optional(),
+  retryReason: RetryReasonSchema.optional(),
+  outcome: FetchOutcomeSchema.optional(),
+  retryCount: z.number().int().optional().default(0),
+  wasShellDetection: z.boolean().optional().default(false),
 });
 
 export const ExtractedDocumentSchema = z.object({
@@ -333,6 +358,8 @@ export type CacheMeta = z.infer<typeof CacheMetaSchema>;
 export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;
 export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 export type ExtractResponse = z.infer<typeof ExtractResponseSchema>;
+export type RetryReason = z.infer<typeof RetryReasonSchema>;
+export type FetchOutcome = z.infer<typeof FetchOutcomeSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type SearchResult = z.infer<typeof SearchResultSchema>;

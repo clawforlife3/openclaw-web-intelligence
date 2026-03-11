@@ -7,7 +7,7 @@ import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipe
 import { logExtractRequest } from '../../observability/requestLogger.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
-import { ExtractRequestSchema, ExtractResponseSchema, type ExtractResponse } from '../../types/schemas.js';
+import { ExtractRequestSchema, ExtractResponseSchema, type ExtractResponse, type RetryReason } from '../../types/schemas.js';
 
 function normalizeDomain(input: string): string {
   return input.trim().toLowerCase().replace(/^\./, '');
@@ -65,7 +65,7 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
       let fromPageCache = true;
       let initialStrategy: 'static' | 'browser' = input.renderMode === 'browser' ? 'browser' : 'static';
       let finalStrategy: 'static' | 'browser' = initialStrategy;
-      let retryReason: string | undefined;
+      let retryReason: RetryReason | undefined;
       let autoRetried = false;
       let fallbackUsed = false;
       let routeReason = 'Cached page result reused.';
@@ -167,6 +167,9 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
         fallbackUsed,
         reason: routeReason,
         retryReason,
+        outcome: autoRetried ? 'success_retry' : (finalStrategy === 'browser' ? 'success_browser' : 'success_static'),
+        retryCount: autoRetried ? 1 : 0,
+        wasShellDetection: retryReason ? ['js_app_shell_detected', 'noscript_shell_detected', 'dom_shell_detected'].includes(retryReason) : false,
       };
       documents.push(document);
     }
