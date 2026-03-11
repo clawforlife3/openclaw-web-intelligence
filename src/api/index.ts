@@ -15,6 +15,7 @@ export { setStorageConfig, getStorageConfig, saveCrawlJob, loadCrawlJob, saveMon
 export { healthCheck } from '../observability/health.js';
 export { fetchWithRouter } from '../fetch/fetchWithRouter.js';
 export { browserFetch } from '../fetch/browserFetcher.js';
+export { getBrowserRuntimeConfig, resetBrowserRuntimeConfig, setBrowserRuntimeConfig } from '../fetch/browserRuntime.js';
 export { monitor } from '../monitor/monitor.js';
 export { createProxyPool, getProxyPool, setProxyPool } from '../proxy/pool.js';
 export { createEvasionManager, getEvasionManager, setEvasionManager } from '../anti-bot/evasion.js';

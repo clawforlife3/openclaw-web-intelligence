@@ -8,6 +8,7 @@ import { getSessionStore } from '../anti-bot/sessionStore.js';
 import { handleChallenge } from '../anti-bot/challenge.js';
 import { recordDomainOutcome } from '../observability/metrics.js';
 import { getDomainFromUrl } from '../observability/trace.js';
+import { getBrowserRuntimeConfig } from './browserRuntime.js';
 import type { StaticFetchRequest, StaticFetchResult } from './staticFetcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,14 @@ export interface BrowserFetchResult extends StaticFetchResult {
 }
 
 type PlaywrightModule = typeof import('playwright');
+type BrowserInstance = Awaited<ReturnType<PlaywrightModule['chromium']['launch']>>;
+type BrowserContextInstance = Awaited<ReturnType<BrowserInstance['newContext']>>;
+type BrowserPageInstance = Awaited<ReturnType<BrowserContextInstance['newPage']>>;
+
+let remoteBrowserCache: {
+  cdpUrl: string;
+  browser: BrowserInstance;
+} | null = null;
 
 async function loadPlaywright(): Promise<PlaywrightModule> {
   try {
@@ -54,11 +63,118 @@ function normalizeHeaders(headers: { [key: string]: string }): Record<string, st
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
 }
 
+async function getRemoteBrowser(playwright: PlaywrightModule, cdpUrl: string): Promise<BrowserInstance> {
+  if (remoteBrowserCache?.cdpUrl === cdpUrl) {
+    return remoteBrowserCache.browser;
+  }
+  const browser = await playwright.chromium.connectOverCDP(cdpUrl);
+  remoteBrowserCache = {
+    cdpUrl,
+    browser,
+  };
+  return browser;
+}
+
+async function buildBrowserContext(input: {
+  playwright: PlaywrightModule;
+  request: BrowserFetchRequest;
+  policy: ReturnType<typeof buildFetchPolicy>;
+  session: ReturnType<NonNullable<ReturnType<typeof getEvasionManager>>['getSession']> | undefined;
+  sessionStore: ReturnType<typeof getSessionStore>;
+}): Promise<{
+  browser: BrowserInstance;
+  context: BrowserContextInstance;
+  page: BrowserPageInstance;
+  closeContextOnFinish: boolean;
+  closePageOnFinish: boolean;
+  closeBrowserOnFinish: boolean;
+}> {
+  const runtime = getBrowserRuntimeConfig();
+  const { request, policy, session, sessionStore, playwright } = input;
+  const fingerprint = session?.fingerprint;
+
+  const contextOptions = {
+    userAgent: session?.userAgent || request.userAgent,
+    viewport: (() => {
+      const raw = fingerprint?.screen;
+      if (!raw) return { width: 1440, height: 900 };
+      const [w, h] = raw.split('x').map((v) => parseInt(v, 10));
+      return { width: w || 1440, height: h || 900 };
+    })(),
+    locale: session?.language?.split(',')[0] || 'en-US',
+    timezoneId: fingerprint?.timezone || 'Asia/Taipei',
+    extraHTTPHeaders: getEvasionManager()?.getHeaders(),
+    storageState: sessionStore?.getStorageStatePath(request.url),
+  };
+
+  if (runtime.mode === 'remote-cdp') {
+    if (!runtime.cdpUrl) {
+      throw new ExtractError('BROWSER_UNAVAILABLE', 'Remote CDP mode requires OPENCLAW_BROWSER_REMOTE_CDP_URL or runtime config cdpUrl.', false, {
+        url: request.url,
+        nextStep: 'Set OPENCLAW_BROWSER_REMOTE_CDP_URL to the remote browser WebSocket/HTTP CDP endpoint.',
+      });
+    }
+
+    const browser = await getRemoteBrowser(playwright, runtime.cdpUrl);
+    const existingContext = browser.contexts()[0];
+    if (runtime.attachOnly) {
+      if (!existingContext) {
+        throw new ExtractError('BROWSER_UNAVAILABLE', 'Remote CDP attachOnly mode requires an existing browser context/profile.', false, {
+          url: request.url,
+          cdpUrl: runtime.cdpUrl,
+          profileName: runtime.profileName,
+          nextStep: 'Open the target Windows/desktop browser profile first, then retry attachOnly mode.',
+        });
+      }
+      const page = await existingContext.newPage();
+      return {
+        browser,
+        context: existingContext,
+        page,
+        closeContextOnFinish: false,
+        closePageOnFinish: true,
+        closeBrowserOnFinish: false,
+      };
+    }
+
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    return {
+      browser,
+      context,
+      page,
+      closeContextOnFinish: true,
+      closePageOnFinish: false,
+      closeBrowserOnFinish: false,
+    };
+  }
+
+  const browser = await playwright.chromium.launch({
+    headless: true,
+    proxy: policy.proxyUrl ? { server: policy.proxyUrl } : undefined,
+  });
+  const context = await browser.newContext(contextOptions);
+  const page = await context.newPage();
+  return {
+    browser,
+    context,
+    page,
+    closeContextOnFinish: true,
+    closePageOnFinish: false,
+    closeBrowserOnFinish: true,
+  };
+}
+
 export async function browserFetch(request: BrowserFetchRequest): Promise<BrowserFetchResult> {
   const playwright = await loadPlaywright();
   const evasion = getEvasionManager();
   const sessionStore = getSessionStore();
-  let browser: Awaited<ReturnType<PlaywrightModule['chromium']['launch']>> | undefined;
+  let browser: BrowserInstance | undefined;
+  let context: BrowserContextInstance | undefined;
+  let page: BrowserPageInstance | undefined;
+  let closeContextOnFinish = false;
+  let closePageOnFinish = false;
+  let closeBrowserOnFinish = false;
   let screenshotPath: string | undefined;
 
   try {
@@ -67,28 +183,20 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
     }
 
     const session = evasion?.getSession();
-    const fingerprint = session?.fingerprint;
     const policy = buildFetchPolicy({ ...request, strategy: 'browser' });
-
-    browser = await playwright.chromium.launch({
-      headless: true,
-      proxy: policy.proxyUrl ? { server: policy.proxyUrl } : undefined,
+    const browserParts = await buildBrowserContext({
+      playwright,
+      request,
+      policy,
+      session,
+      sessionStore,
     });
-    const context = await browser.newContext({
-      userAgent: session?.userAgent || request.userAgent,
-      viewport: (() => {
-        const raw = fingerprint?.screen;
-        if (!raw) return { width: 1440, height: 900 };
-        const [w, h] = raw.split('x').map((v) => parseInt(v, 10));
-        return { width: w || 1440, height: h || 900 };
-      })(),
-      locale: session?.language?.split(',')[0] || 'en-US',
-      timezoneId: fingerprint?.timezone || 'Asia/Taipei',
-      extraHTTPHeaders: evasion?.getHeaders(),
-      storageState: sessionStore?.getStorageStatePath(request.url),
-    });
-
-    const page = await context.newPage();
+    browser = browserParts.browser;
+    context = browserParts.context;
+    page = browserParts.page;
+    closeContextOnFinish = browserParts.closeContextOnFinish;
+    closePageOnFinish = browserParts.closePageOnFinish;
+    closeBrowserOnFinish = browserParts.closeBrowserOnFinish;
     const startTime = Date.now();
     const response = await page.goto(request.url, {
       waitUntil: request.waitUntil ?? 'domcontentloaded',
@@ -141,7 +249,6 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       latencyMs: Date.now() - startTime,
       success: true,
     });
-    await context.close();
 
     return {
       requestedUrl: request.url,
@@ -168,6 +275,14 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       nextStep: 'Verify Playwright browser binaries are installed and launchable in this environment.',
     });
   } finally {
-    await browser?.close();
+    if (closePageOnFinish) {
+      await page?.close().catch(() => undefined);
+    }
+    if (closeContextOnFinish) {
+      await context?.close().catch(() => undefined);
+    }
+    if (closeBrowserOnFinish) {
+      await browser?.close().catch(() => undefined);
+    }
   }
 }

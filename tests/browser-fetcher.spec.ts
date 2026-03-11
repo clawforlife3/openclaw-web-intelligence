@@ -6,23 +6,30 @@ const screenshot = vi.fn();
 const allHeaders = vi.fn();
 const status = vi.fn();
 const pageUrl = vi.fn();
+const closePage = vi.fn();
 const closeContext = vi.fn();
 const closeBrowser = vi.fn();
 const newPage = vi.fn();
 const newContext = vi.fn();
 const launch = vi.fn();
+const connectOverCDP = vi.fn();
+const contexts = vi.fn();
+const storageState = vi.fn();
 
 vi.mock('playwright', () => ({
   chromium: {
     launch,
+    connectOverCDP,
   },
 }));
 
 const { browserFetch } = await import('../src/fetch/browserFetcher.js');
+const { resetBrowserRuntimeConfig, setBrowserRuntimeConfig } = await import('../src/fetch/browserRuntime.js');
 
 describe('browserFetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetBrowserRuntimeConfig();
 
     allHeaders.mockResolvedValue({ 'content-type': 'text/html' });
     status.mockReturnValue(200);
@@ -30,11 +37,19 @@ describe('browserFetch', () => {
     content.mockResolvedValue('<html><head><title>Browser Page</title></head><body><h1>Hello</h1></body></html>');
     screenshot.mockResolvedValue(Buffer.from('png'));
     goto.mockResolvedValue({ status, allHeaders });
-    newPage.mockResolvedValue({ goto, content, screenshot, url: pageUrl });
+    closePage.mockResolvedValue(undefined);
+    newPage.mockResolvedValue({ goto, content, screenshot, url: pageUrl, close: closePage });
     closeContext.mockResolvedValue(undefined);
-    newContext.mockResolvedValue({ newPage, close: closeContext });
+    storageState.mockResolvedValue({ cookies: [], origins: [] });
+    newContext.mockResolvedValue({ newPage, close: closeContext, storageState });
     closeBrowser.mockResolvedValue(undefined);
+    contexts.mockReturnValue([{
+      newPage,
+      close: closeContext,
+      storageState,
+    }]);
     launch.mockResolvedValue({ newContext, close: closeBrowser });
+    connectOverCDP.mockResolvedValue({ contexts, newContext, close: closeBrowser });
   });
 
   it('returns browser fetch result with html and headers', async () => {
@@ -68,5 +83,28 @@ describe('browserFetch', () => {
 
     expect(screenshot).toHaveBeenCalled();
     expect(result.screenshotPath).toMatch(/artifacts\/browser\/browser-.*\.png$/);
+  });
+
+  it('connects over remote CDP and reuses existing context in attachOnly mode', async () => {
+    setBrowserRuntimeConfig({
+      mode: 'remote-cdp',
+      cdpUrl: 'http://127.0.0.1:9222',
+      attachOnly: true,
+      profileName: 'windows-default',
+    });
+
+    const result = await browserFetch({
+      url: 'https://example.com',
+      timeoutMs: 10_000,
+      retryMax: 0,
+      userAgent: 'test-agent',
+    });
+
+    expect(connectOverCDP).toHaveBeenCalledWith('http://127.0.0.1:9222');
+    expect(launch).not.toHaveBeenCalled();
+    expect(newContext).not.toHaveBeenCalled();
+    expect(closeBrowser).not.toHaveBeenCalled();
+    expect(closePage).toHaveBeenCalled();
+    expect(result.finalUrl).toBe('https://example.com/final');
   });
 });
