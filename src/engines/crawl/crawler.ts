@@ -7,6 +7,7 @@ import { generateRequestId, generateTraceId, generateJobId } from '../../types/u
 import { MapRequestSchema, CrawlRequestSchema, type MapResponse, type CrawlResponse } from '../../types/schemas.js';
 import { ExtractError } from '../../types/errors.js';
 import { evaluateRobotsPolicy, type RobotsMode, type RobotsEvaluation } from './robotsPolicy.js';
+import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js';
 
 interface QueueItem {
   url: string;
@@ -173,27 +174,61 @@ export async function map(request: z.input<typeof MapRequestSchema>): Promise<Ma
     });
   }
 
-  while (queue.length > 0 && urls.length < limit) {
-    const current = queue.shift()!;
-    if (visited.has(current.url)) continue;
-    visited.add(current.url);
+  // Sitemap discovery
+  let sitemapUrls: string[] = [];
+  let discoveredBySitemap = false;
+  if (input.discoverFromSitemap) {
+    try {
+      const sitemap = await discoverSitemap(seedUrl);
+      if (sitemap && sitemap.urls.length > 0) {
+        sitemapUrls = filterSitemapUrls(sitemap.urls, seedHost, includeDomains, denyDomains, input.excludePaths);
+        discoveredBySitemap = true;
+      }
+    } catch {
+      // Sitemap discovery failed, fall back to BFS
+    }
+  }
 
-    const links = await fetchLinks(current.url, pageCache);
-    urls.push({ url: current.url, depth: current.depth, discoveredFrom: current.parent });
+  // If sitemap discovery succeeded and returned URLs, use them directly
+  if (discoveredBySitemap && sitemapUrls.length > 0) {
+    for (const sitemapUrl of sitemapUrls.slice(0, limit)) {
+      if (visited.has(sitemapUrl)) continue;
+      visited.add(sitemapUrl);
 
-    if (current.depth < maxDepth && urls.length < limit) {
-      const nextDepth = current.depth + 1;
-      for (const link of links) {
-        if (!visited.has(link)) {
-          if (isUrlInScope(link, seedHost, includeDomains, denyDomains)) {
-            const robotsDecision = await evaluateTrackedRobotsPolicy(link, input.robotsMode, debug, 'enqueue');
-            if (!robotsDecision.allowed) {
+      if (input.robotsMode !== 'off') {
+        const robotsDecision = await evaluateTrackedRobotsPolicy(sitemapUrl, input.robotsMode, debug, 'enqueue');
+        if (!robotsDecision.allowed) {
+          excluded += 1;
+          continue;
+        }
+      }
+
+      urls.push({ url: sitemapUrl, depth: 0, discoveredBy: 'sitemap' });
+    }
+  } else {
+    // Fall back to BFS
+    while (queue.length > 0 && urls.length < limit) {
+      const current = queue.shift()!;
+      if (visited.has(current.url)) continue;
+      visited.add(current.url);
+
+      const links = await fetchLinks(current.url, pageCache);
+      urls.push({ url: current.url, depth: current.depth, discoveredFrom: current.parent, discoveredBy: 'bfs' });
+
+      if (current.depth < maxDepth && urls.length < limit) {
+        const nextDepth = current.depth + 1;
+        for (const link of links) {
+          if (!visited.has(link)) {
+            if (isUrlInScope(link, seedHost, includeDomains, denyDomains)) {
+              const robotsDecision = await evaluateTrackedRobotsPolicy(link, input.robotsMode, debug, 'enqueue');
+              if (!robotsDecision.allowed) {
+                excluded += 1;
+                continue;
+              }
+              if (urls.length + queue.length < limit) queue.push({ url: link, depth: nextDepth, parent: current.url });
+            } else {
               excluded += 1;
-              continue;
             }
-            if (urls.length + queue.length < limit) queue.push({ url: link, depth: nextDepth, parent: current.url });
-          } else {
-            excluded += 1;
           }
         }
       }
@@ -255,50 +290,109 @@ export async function crawl(request: z.input<typeof CrawlRequestSchema>): Promis
     });
   }
 
-  while (queue.length > 0 && documents.length < limit) {
-    const current = queue.shift()!;
-    if (visited.has(current.url)) continue;
-    visited.add(current.url);
-
-    const urlPath = new URL(current.url).pathname;
-    if (excludePaths.some((p) => urlPath.includes(p))) {
-      skipped += 1;
-      continue;
-    }
-
+  // Sitemap discovery
+  let sitemapUrls: string[] = [];
+  let discoveredBySitemap = false;
+  if (input.discoverFromSitemap) {
     try {
-      const page = await fetchPage(current.url, pageCache);
-      const document = extractDocument(page.result, {
-        includeLinks: input.includeLinks,
-        includeHtml: false,
-        includeStructured: input.includeStructured,
-      });
-      document.cache = { hit: page.cacheHit, ttlSeconds: request.cacheTtlSeconds };
-      document.fetch = {
-        strategy: page.finalStrategy,
-        initialStrategy: page.initialStrategy,
-        autoRetried: page.autoRetried,
-        fallbackUsed: page.fallbackUsed,
-        reason: page.routeReason,
-        retryReason: page.retryReason,
-      };
-      documents.push(document);
-
-      if (current.depth < maxDepth && documents.length < limit) {
-        const nextDepth = current.depth + 1;
-        for (const link of document.links) {
-          if (!visited.has(link) && isUrlInScope(link, seedHost, includeDomains, denyDomains)) {
-            const robotsDecision = await evaluateTrackedRobotsPolicy(link, input.robotsMode, debug, 'enqueue');
-            if (!robotsDecision.allowed) {
-              skipped += 1;
-              continue;
-            }
-            if (documents.length + queue.length < limit) queue.push({ url: link, depth: nextDepth, parent: current.url });
-          }
-        }
+      const sitemap = await discoverSitemap(seedUrl);
+      if (sitemap && sitemap.urls.length > 0) {
+        sitemapUrls = filterSitemapUrls(sitemap.urls, seedHost, includeDomains, denyDomains, excludePaths);
+        discoveredBySitemap = true;
       }
     } catch {
-      failedUrls.push(current.url);
+      // Sitemap discovery failed, fall back to BFS
+    }
+  }
+
+  // If sitemap discovery succeeded and returned URLs, use them directly as crawl targets
+  if (discoveredBySitemap && sitemapUrls.length > 0) {
+    for (const sitemapUrl of sitemapUrls.slice(0, limit)) {
+      if (visited.has(sitemapUrl)) continue;
+      visited.add(sitemapUrl);
+
+      const urlPath = new URL(sitemapUrl).pathname;
+      if (excludePaths.some((p) => urlPath.includes(p))) {
+        skipped += 1;
+        continue;
+      }
+
+      if (input.robotsMode !== 'off') {
+        const robotsDecision = await evaluateTrackedRobotsPolicy(sitemapUrl, input.robotsMode, debug, 'enqueue');
+        if (!robotsDecision.allowed) {
+          skipped += 1;
+          continue;
+        }
+      }
+
+      try {
+        const page = await fetchPage(sitemapUrl, pageCache);
+        const document = extractDocument(page.result, {
+          includeLinks: input.includeLinks,
+          includeHtml: false,
+          includeStructured: input.includeStructured,
+        });
+        document.cache = { hit: page.cacheHit, ttlSeconds: request.cacheTtlSeconds };
+        document.fetch = {
+          strategy: page.finalStrategy,
+          initialStrategy: page.initialStrategy,
+          autoRetried: page.autoRetried,
+          fallbackUsed: page.fallbackUsed,
+          reason: page.routeReason,
+          retryReason: page.retryReason,
+        };
+        documents.push(document);
+      } catch {
+        failedUrls.push(sitemapUrl);
+      }
+    }
+  } else {
+    // Fall back to BFS crawl
+    while (queue.length > 0 && documents.length < limit) {
+      const current = queue.shift()!;
+      if (visited.has(current.url)) continue;
+      visited.add(current.url);
+
+      const urlPath = new URL(current.url).pathname;
+      if (excludePaths.some((p) => urlPath.includes(p))) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        const page = await fetchPage(current.url, pageCache);
+        const document = extractDocument(page.result, {
+          includeLinks: input.includeLinks,
+          includeHtml: false,
+          includeStructured: input.includeStructured,
+        });
+        document.cache = { hit: page.cacheHit, ttlSeconds: request.cacheTtlSeconds };
+        document.fetch = {
+          strategy: page.finalStrategy,
+          initialStrategy: page.initialStrategy,
+          autoRetried: page.autoRetried,
+          fallbackUsed: page.fallbackUsed,
+          reason: page.routeReason,
+          retryReason: page.retryReason,
+        };
+        documents.push(document);
+
+        if (current.depth < maxDepth && documents.length < limit) {
+          const nextDepth = current.depth + 1;
+          for (const link of document.links) {
+            if (!visited.has(link) && isUrlInScope(link, seedHost, includeDomains, denyDomains)) {
+              const robotsDecision = await evaluateTrackedRobotsPolicy(link, input.robotsMode, debug, 'enqueue');
+              if (!robotsDecision.allowed) {
+                skipped += 1;
+                continue;
+              }
+              if (documents.length + queue.length < limit) queue.push({ url: link, depth: nextDepth, parent: current.url });
+            }
+          }
+        }
+      } catch {
+        failedUrls.push(current.url);
+      }
     }
   }
 

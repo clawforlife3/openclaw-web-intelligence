@@ -6,6 +6,7 @@
 - Current status: **MVP 1.0 完成 / MVP 2.0 first-usable**
 - 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
 - 路線圖：[`docs/ROADMAP.md`](./docs/ROADMAP.md)
+- 演進計畫：[`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
 - 架構文件：[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 
 ---
@@ -38,6 +39,7 @@
 - **Structured Extraction v1.1**：article / docs / product / forum
 - **Robots Policy v1**：strict / balanced / off
 - **Monitor / Diff v1**：baseline snapshot + field diff
+- **Sitemap Ingestion v1**：sitemap.xml 發現 URL，與 map/crawl 整合
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）
@@ -51,6 +53,8 @@
 - 高頻跨網域分散式抓取
 - 重度 anti-bot 對抗
 - 需要完整 proxy pool / queue / distributed worker 的場景
+
+> 這些不是「永遠不做」，而是屬於 production capability track。建議先完成 research strengthening，再進入 bridge / production 階段。詳見 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
 
 ---
 
@@ -337,12 +341,16 @@ npm run extract -- --url "https://example.com" --deny-domains=ads.example.com
 npm run map -- --url "https://docs.example.com"
 npm run map -- --url "https://docs.example.com" --max-depth 2 --limit 50
 npm run map -- --url "https://docs.example.com" --robots-mode=strict
+
+# 使用 sitemap 發現 URL（適用於 docs / blog / changelog 站點）
+npm run map -- --url "https://docs.example.com" --discover-from-sitemap=true --limit 100
 ```
 
 ### 適合場景
 - 先看 docs 站結構
 - 想知道有哪些 guide / api / blog 分支
 - 幫 crawl 選入口
+- 使用 `--discover-from-sitemap=true` 從 sitemap.xml 直接取得 URL，大幅提高 coverage
 
 ---
 
@@ -352,6 +360,9 @@ npm run map -- --url "https://docs.example.com" --robots-mode=strict
 npm run crawl -- --url "https://docs.example.com"
 npm run crawl -- --url "https://docs.example.com" --max-depth 2 --limit 20 --include-structured=true
 npm run crawl -- --url "https://docs.example.com" --robots-mode=balanced --include-structured=true
+
+# 使用 sitemap 發現 URL
+npm run crawl -- --url "https://docs.example.com" --discover-from-sitemap=true --limit 50
 ```
 
 ### 適合場景
@@ -522,10 +533,13 @@ npm run test
 
 如果目標是更強的 research crawler，建議優先順序：
 1. sitemap ingestion
-2. retry classification / host policy memory
-3. 更多 site-specific structured extraction
-4. browser ops / deployment docs
-5. per-domain rate limiting
+2. retry classification
+3. host policy memory
+4. 更多 site-specific structured extraction
+5. browser ops / deployment docs
+6. lightweight per-domain rate limiting
+
+若要看完整的 research → bridge → production 路線，請直接看 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
 
 ---
 
@@ -533,6 +547,7 @@ npm run test
 
 - [CURRENT_STATE.md](./docs/CURRENT_STATE.md)
 - [ROADMAP.md](./docs/ROADMAP.md)
+- [RESEARCH_TO_PRODUCTION_PLAN.md](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [PRD](./docs/openclaw-web-intelligence-prd.md)
 - [SDD](./docs/openclaw-web-intelligence-sdd.md)

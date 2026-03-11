@@ -18,12 +18,13 @@
 - monitor/diff v1（baseline snapshot + field diff）
 - stronger research-crawler heuristics v1.1（JS shell / noscript shell / thin DOM detection）
 - richer structured extraction v1.1（docs/article coverage expanded）
+- sitemap ingestion v1（sitemap.xml discovery + map/crawl integration）
 
 ## Completion Estimate
 
 ### Research Crawler Ready
-- **完成度：約 78%–85%**
-- 尚缺：browser ops 文件、site-specific structured coverage、sitemap ingestion、retry classification
+- **完成度：約 82%–88%**
+- 尚缺：browser ops 文件、site-specific structured coverage、retry classification、host policy memory
 
 ### Production Crawler
 - **完成度：約 35%–45%**
@@ -42,6 +43,7 @@
 | Structured extraction | planned | ✅ v1.1 article/docs/product/forum（coverage expanded） |
 | Robots | planned | ✅ strict/balanced/off v1 |
 | Monitor/Diff | post-MVP | ✅ v1 baseline + field diff |
+| Sitemap | research | ✅ v1 sitemap.xml discovery + map/crawl |
 | Distributed/proxy | long-term | ❌ 尚未實作 |
 
 ## Main Gaps
@@ -71,10 +73,18 @@
 
 ## Recommended Next Steps
 
-1. ~~實作 monitor/diff 第一版~~ ✅ 已完成
-2. 寫 browser ops / deployment 文件
-3. 補 sitemap ingestion
-4. 補 retry classification / host policy memory
-5. 擴 site-specific structured extraction coverage
-6. 補 per-domain rate limiting
-7. 新增 recurring schedule + alerting 機制
+> 詳細兩階段演進請見 [RESEARCH_TO_PRODUCTION_PLAN.md](./RESEARCH_TO_PRODUCTION_PLAN.md)
+
+### Near-term（Research Strengthening）
+1. ~~補 sitemap ingestion~~ ✅ 已完成
+2. 補 retry classification
+3. 補 host policy memory
+4. 擴 site-specific structured extraction coverage
+5. 寫 browser ops / deployment 文件
+6. 補 lightweight per-domain rate limiting
+
+### Mid-term（Bridge Layer）
+7. 新增 recurring schedule
+8. 補 alerting abstraction
+9. 補 monitor / crawl persistence baseline
+10. 補 observability baseline

@@ -119,6 +119,30 @@ export const SearchResponseSchema = z.object({
 });
 
 // ============================================
+// Sitemap (Extension for Research Crawler)
+// ============================================
+
+export const SitemapUrlSchema = z.object({
+  loc: z.string().url(),
+  lastmod: z.string().optional(),
+  changefreq: z.string().optional(),
+  priority: z.number().optional(),
+});
+
+export const SitemapSchema = z.object({
+  type: z.enum(['sitemap', 'index']),
+  urls: z.array(SitemapUrlSchema),
+  sources: z.array(z.string().url()),
+});
+
+export const SitemapDiscoveryResultSchema = z.object({
+  discovered: z.boolean(),
+  urls: z.array(z.string().url()),
+  sources: z.array(z.string().url()),
+  method: z.enum(['sitemap', 'bfs', 'both']),
+});
+
+// ============================================
 // Map (API Spec Section 5)
 // ============================================
 
@@ -131,12 +155,14 @@ export const MapRequestSchema = z.object({
   excludePaths: z.array(z.string()).optional().default([]),
   robotsMode: z.enum(['strict', 'balanced', 'off']).optional().default('balanced'),
   cacheTtlSeconds: z.number().int().min(0).optional().default(1800),
+  discoverFromSitemap: z.boolean().optional().default(false),
 });
 
 export const MapResultSchema = z.object({
   url: z.string().url(),
   depth: z.number().int(),
   discoveredFrom: z.string().url().optional(),
+  discoveredBy: z.enum(['sitemap', 'bfs']).optional(),
 });
 
 export const MapSummarySchema = z.object({
@@ -189,6 +215,7 @@ export const CrawlRequestSchema = z.object({
   includeStructured: z.boolean().optional().default(false),
   robotsMode: z.enum(['strict', 'balanced', 'off']).optional().default('balanced'),
   cacheTtlSeconds: z.number().int().min(0).optional().default(1800),
+  discoverFromSitemap: z.boolean().optional().default(false),
 });
 
 export const CrawlSummarySchema = z.object({
@@ -317,6 +344,9 @@ export type MonitorRequest = z.infer<typeof MonitorRequestSchema>;
 export type MonitorSnapshot = z.infer<typeof MonitorSnapshotSchema>;
 export type MonitorChange = z.infer<typeof MonitorChangeSchema>;
 export type MonitorResponse = z.infer<typeof MonitorResponseSchema>;
+export type SitemapUrl = z.infer<typeof SitemapUrlSchema>;
+export type Sitemap = z.infer<typeof SitemapSchema>;
+export type SitemapDiscoveryResult = z.infer<typeof SitemapDiscoveryResultSchema>;
 export type CacheOptions = z.infer<typeof CacheOptionsSchema>;
 export type CacheEntry = z.infer<typeof CacheEntrySchema>;
 export type CacheStats = z.infer<typeof CacheStatsSchema>;

@@ -12,6 +12,7 @@
 | MVP 2.0 | 🚧 進行中（多個 phase 已有第一版） | 2026-03-11 |
 
 現況總覽請參考 [CURRENT_STATE.md](./CURRENT_STATE.md)。
+研究型到 production 的演進策略請參考 [RESEARCH_TO_PRODUCTION_PLAN.md](./RESEARCH_TO_PRODUCTION_PLAN.md)。
 
 ---
 
@@ -105,49 +106,62 @@ flowchart LR
 
 ### Research Crawler（研究型爬蟲）
 
-**目標**：能穩定擷取 docs/blog/article 網站
+**目標**：能穩定擷取 docs/blog/article 網站，並提供 agent-ready 輸出。
 
 **預計時間**：4-6 週
 
-| Phase | 內容 |
-|-------|------|
-| Phase 2 | Headless browser rendering |
-| Phase 3 | Structured extraction |
-| - | Fallback render strategy |
-| - | Host policy memory |
-| - | Sitemap ingestion |
-| - | Retry classification |
+| Priority | 能力 | 說明 |
+|----------|------|------|
+| 1 | Sitemap ingestion | 提升 discover coverage |
+| 2 | Retry classification | 系統化 static/browser retry 判斷 |
+| 3 | Host policy memory | 讓常見 host 有更穩定 routing |
+| 4 | Site-specific structured extraction | 提高 docs/article/changelog 輸出品質 |
+| 5 | Browser ops / deployment docs | 降低落地摩擦 |
+| 6 | Lightweight per-domain rate limiting | 建立基本治理能力 |
+
+---
+
+### Bridge Layer（從 Research 到 Production 的過渡層）
+
+**目標**：建立最小可治理能力，讓系統能持續執行與被監控。
+
+| Priority | 能力 | 說明 |
+|----------|------|------|
+| 1 | Monitor scheduling | recurring monitor execution |
+| 2 | Alerting abstraction | webhook / Telegram / console 通知 |
+| 3 | Persistence baseline | monitor / crawl job state groundwork |
+| 4 | Observability baseline | request / crawl / retry metrics |
+| 5 | Governance baseline | safer concurrency / rate controls |
 
 ---
 
 ### Production Crawler（生產型爬蟲）
 
-**目標**：可規模化、可分散式
+**目標**：在有真實 operational pressure 後，支援可規模化、可分散式執行。
 
 **預計時間**：8-12 週
 
-| Phase | 內容 |
-|-------|------|
-| Phase 5 | Proxy pool + anti-bot |
-| Phase 6 | 分散式 queue + worker |
-| - | Redis queue |
-| - | Multi-worker crawl |
-| - | Recrawl / change detection |
+| Priority | 能力 | 說明 |
+|----------|------|------|
+| 1 | Queue / worker abstraction | 任務排隊與 worker lifecycle |
+| 2 | Persistent job orchestration | job history / retry / backoff |
+| 3 | Proxy strategy | domain-specific outbound policy |
+| 4 | Anti-bot policy layer | escalation / fallback / throttling |
+| 5 | Distributed crawl | multi-worker frontier coordination |
+| 6 | Storage backend upgrade | snapshot / crawl / diff persistence |
+| 7 | Production observability | dashboard / thresholds / health checks |
 
 ---
 
 ## ✅ 優先執行順序
 
-根據成本效益分析：
+根據目前定位，優先順序應採「先 research quality，後 production complexity」：
 
 | 優先 | 階段 | 理由 |
 |------|------|------|
-| 1 | Phase 1 | 立即可做，回報大 |
-| 2 | Phase 4 | 降低倫理風險 |
-| 3 | Phase 3 | 核心能力 |
-| 4 | Phase 2 | JS-heavy 網站支援 |
-| 5 | Phase 5 | 長期需要 |
-| 6 | Phase 6 | 規模化後再說 |
+| 1 | Research Crawler | 直接提升 coverage / quality / agent usability |
+| 2 | Bridge Layer | 補齊 scheduling / alerting / persistence / observability |
+| 3 | Production Crawler | 有明確 operational pressure 再投入 |
 
 ---
 
