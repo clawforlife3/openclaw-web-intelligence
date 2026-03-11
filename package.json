@@ -17,12 +17,14 @@
     "cache": "tsx src/scripts/run-cache.ts"
   },
   "dependencies": {
+    "better-sqlite3": "^11.7.0",
     "cheerio": "^1.1.2",
     "ddgs": "^1.0.4",
     "playwright": "^1.58.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.13.10",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",

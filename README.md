@@ -49,6 +49,8 @@
 - **Health Endpoint**：production 健康檢查
 - **Anti-bot Detection**：403/429 偵測並拋出 ANTI_BOT_BLOCKED 錯誤
 - **Proxy Support (schema)**：proxyUrl 參數預留
+- **Distributed Crawling**：worker/shard 抽象 + URL 分割
+- **Storage Backend**：SQLite + Memory 雙後端支援
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）

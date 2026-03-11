@@ -8,6 +8,8 @@ export { acquireRateLimitToken, setRateLimitConfig, clearRateLimitConfig, getRat
 export { getMetrics, resetMetrics } from '../observability/metrics.js';
 export { route } from '../router/retrievalRouter.js';
 export { enqueueJob, getJob, listJobs, processJob } from '../queue/jobQueue.js';
+export { setWorker, getWorker, shardUrl, shouldProcessUrl, partitionUrls } from '../queue/distributed.js';
+export { setStorageConfig, getStorageConfig, saveCrawlJob, loadCrawlJob, saveMonitorSnapshot, loadMonitorSnapshots } from '../storage/backend.js';
 export { healthCheck } from '../observability/health.js';
 export { fetchWithRouter } from '../fetch/fetchWithRouter.js';
 export { browserFetch } from '../fetch/browserFetcher.js';

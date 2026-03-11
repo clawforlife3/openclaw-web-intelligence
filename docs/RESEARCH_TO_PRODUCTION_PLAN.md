@@ -372,11 +372,11 @@ flowchart LR
 13. ~~Persistent job orchestration~~ ✅ 已完成（job status in cache）
 14. ~~Proxy strategy~~ ✅ 已完成（schema + types，预留 proxyUrl）
 15. ~~Anti-bot policy layer~~ ✅ 已完成（ANTI_BOT_BLOCKED error for 403/429）
-16. Distributed crawling（需要 multi-worker）
-17. Storage backend upgrade（SQLite/Redis persistence）
+16. ~~Distributed crawling~~ ✅ 已完成（worker/shard abstraction + URL partitioning）
+17. ~~Storage backend upgrade~~ ✅ 已完成（SQLite + memory 雙後端）
 18. ~~Production observability / health model~~ ✅ 已完成（/health endpoint + metrics）
 
-🎯 **Production Capability 大部分完成！**
+🎉 **全部完成！**
 
 ---
 
