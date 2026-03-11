@@ -467,6 +467,62 @@ export const ResearchTopicResponseSchema = z.object({
   meta: CommonMetaSchema.optional(),
 });
 
+export const CrawlDomainRequestSchema = z.object({
+  domain: z.string().min(3),
+  goal: z.string().optional().default('domain research'),
+  patterns: z.array(z.string().min(1)).optional().default([]),
+  depth: z.number().int().min(1).max(5).optional().default(2),
+  maxPages: z.number().int().min(1).max(500).optional().default(50),
+});
+
+export const CrawlDomainResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    taskId: z.string(),
+    status: z.enum(['completed']),
+    domain: z.string(),
+    goal: z.string(),
+    mappedUrls: z.array(z.object({
+      url: z.string().url(),
+      depth: z.number().int(),
+      category: z.string(),
+    })),
+    categorizedUrls: z.array(z.object({
+      category: z.string(),
+      urls: z.array(z.string().url()),
+    })),
+    recommendedExtractionTargets: z.array(z.string().url()),
+    stats: z.object({
+      mappedCount: z.number().int(),
+      recommendedCount: z.number().int(),
+    }),
+  }),
+  meta: CommonMetaSchema.optional(),
+});
+
+export const MonitorTopicRequestSchema = z.object({
+  topic: z.string().min(3),
+  watchDomains: z.array(z.string().min(1)).optional().default([]),
+  queryTemplates: z.array(z.string().min(1)).optional().default([]),
+  schedule: z.string().optional().default('every 1d'),
+  diffMode: z.enum(['hash', 'field', 'full']).optional().default('field'),
+});
+
+export const MonitorTopicResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    taskId: z.string(),
+    status: z.enum(['created', 'checked']),
+    topic: z.string(),
+    watchList: z.array(z.string()),
+    newFindings: z.array(z.string()),
+    changedPages: z.array(z.string().url()),
+    alerts: z.array(z.string()),
+    updatedSummary: z.string(),
+  }),
+  meta: CommonMetaSchema.optional(),
+});
+
 // ============================================
 // Type Exports
 // ============================================
@@ -506,3 +562,7 @@ export type ResearchDocument = z.infer<typeof ResearchDocumentSchema>;
 export type ResearchTaskStatus = z.infer<typeof ResearchTaskStatusSchema>;
 export type ResearchTaskCheckpoint = z.infer<typeof ResearchTaskCheckpointSchema>;
 export type ResearchTopicResponse = z.infer<typeof ResearchTopicResponseSchema>;
+export type CrawlDomainRequest = z.infer<typeof CrawlDomainRequestSchema>;
+export type CrawlDomainResponse = z.infer<typeof CrawlDomainResponseSchema>;
+export type MonitorTopicRequest = z.infer<typeof MonitorTopicRequestSchema>;
+export type MonitorTopicResponse = z.infer<typeof MonitorTopicResponseSchema>;
