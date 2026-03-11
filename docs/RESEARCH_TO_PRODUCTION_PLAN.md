@@ -350,9 +350,11 @@ flowchart LR
 1. ~~Sitemap ingestion~~ ✅ 已完成
 2. ~~Retry classification~~ ✅ 已完成
 3. ~~Host policy memory~~ ✅ 已完成
-4. Site-specific structured extraction
-5. Browser ops / deployment docs
-6. Lightweight per-domain rate limiting
+4. ~~Site-specific structured extraction~~ ✅ 已完成
+5. ~~Browser ops / deployment docs~~ ✅ 已完成
+6. ~~Lightweight per-domain rate limiting~~ ✅ 已完成
+
+🎉 **Near-term 全部完成！**
 
 ## Mid-term (Bridge Layer)
 7. Monitor scheduling

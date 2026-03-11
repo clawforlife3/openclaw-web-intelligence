@@ -90,7 +90,7 @@ function hasJsAppMarkers(html: string): boolean {
 type StructuredData = Record<string, unknown>;
 
 interface StructuredExtractor {
-  kind: 'article' | 'docs' | 'product' | 'forum';
+  kind: 'article' | 'docs' | 'product' | 'forum' | 'docusaurus' | 'mkdocs' | 'github-docs' | 'changelog';
   detect: ($: cheerio.CheerioAPI, url: URL, text: string) => boolean;
   extract: ($: cheerio.CheerioAPI, url: URL, text: string) => StructuredData;
 }
@@ -171,6 +171,120 @@ function getFirstString(value: unknown): string | undefined {
 }
 
 const structuredExtractors: StructuredExtractor[] = [
+  // Site-specific: Docusaurus
+  {
+    kind: 'docusaurus',
+    detect: ($, url) => {
+      const html = $.html().toLowerCase();
+      return html.includes('docusaurus') 
+        || html.includes('theme-doc-sidebar')
+        || $('.theme-doc-sidebar').length > 0
+        || $('.theme-doc-markdown').length > 0
+        || $('[class*="docSidebar"]').length > 0;
+    },
+    extract: ($, url, text) => {
+      const navItems = $('.theme-doc-sidebar nav.menu__link, .theme-doc-sidebar nav a').length;
+      const codeBlocks = $('pre, code').length;
+      const headings = $('main h1, main h2, main h3, main h4').slice(0, 20).map((_, el) => $(el).text().trim()).get();
+      const lastUpdated = getText($, '[class*="lastUpdated"], .theme-last-updated, time');
+      
+      return {
+        kind: 'docusaurus',
+        framework: 'docusaurus',
+        navItemCount: navItems,
+        codeBlockCount: codeBlocks,
+        headingTree: headings,
+        hasAdmonitions: $('.admonition, .alert, [class*="admonition"]').length > 0,
+        hasVersionPicker: $('[class*="version-picker"], .theme-version-picker').length > 0,
+        hasSidebar: $('.theme-doc-sidebar, [class*="sidebar"]').length > 0,
+        lastUpdated,
+        pathType: url.pathname.includes('/docs/') ? 'docs' : url.pathname.includes('/blog/') ? 'blog' : 'other',
+      };
+    },
+  },
+  // Site-specific: MkDocs / Material
+  {
+    kind: 'mkdocs',
+    detect: ($, url) => {
+      const html = $.html().toLowerCase();
+      return html.includes('mkdocs') 
+        || html.includes('material')
+        || $('.mkdocs').length > 0
+        || $('[class*="md-sidebar"]').length > 0
+        || $('.md-content').length > 0;
+    },
+    extract: ($, url, text) => {
+      const navLinks = $('nav.md-nav a, .md-sidebar a').length;
+      const tocLinks = $('.md-toc a, .toc a').length;
+      const codeBlocks = $('pre.code', '.highlight').length;
+      const headings = $('article h1, article h2, article h3').slice(0, 15).map((_, el) => $(el).text().trim()).get();
+      
+      return {
+        kind: 'mkdocs',
+        framework: 'mkdocs-material',
+        navLinkCount: navLinks,
+        tocLinkCount: tocLinks,
+        codeBlockCount: codeBlocks,
+        headingTree: headings,
+        hasSourceRepo: $('[class*="repo"], [class*="source"]').length > 0,
+        hasSearch: $('[class*="search"], .md-search').length > 0,
+        pathType: url.pathname.includes('/reference/') ? 'reference' : url.pathname.includes('/guide/') ? 'guide' : 'other',
+      };
+    },
+  },
+  // Site-specific: GitHub-like docs
+  {
+    kind: 'github-docs',
+    detect: ($, url) => {
+      const html = $.html().toLowerCase();
+      return (url.hostname.includes('github') || url.hostname.includes('gitlab'))
+        && (url.pathname.includes('/docs/') || url.pathname.includes('/wiki/') || $('.markdown-body, .gh-docs').length > 0);
+    },
+    extract: ($, url, text) => {
+      const headings = $('.markdown-body h1, .markdown-body h2, .markdown-body h3, .gh-docs h1, .gh-docs h2').slice(0, 15).map((_, el) => $(el).text().trim()).get();
+      const codeBlocks = $('.markdown-body pre, .gh-docs pre').length;
+      const links = $('.markdown-body a, .gh-docs a').length;
+      
+      return {
+        kind: 'github-docs',
+        framework: url.hostname.includes('github') ? 'github' : 'gitlab',
+        headingTree: headings,
+        codeBlockCount: codeBlocks,
+        linkCount: links,
+        hasToc: $('.markdown-body .toc, .gh-docs .toc, [class*="table-of-contents"]').length > 0,
+        pathType: url.pathname.includes('/wiki/') ? 'wiki' : 'docs',
+      };
+    },
+  },
+  // Site-specific: Changelog
+  {
+    kind: 'changelog',
+    detect: ($, url) => {
+      const html = $.html().toLowerCase();
+      const path = url.pathname.toLowerCase();
+      return path.includes('changelog') 
+        || path.includes('release-notes')
+        || path.includes('releases')
+        || html.includes('changelog')
+        || $('.changelog, .release-notes, [class*="changelog"]').length > 0;
+    },
+    extract: ($) => {
+      const versions = $('h2, h3, [class*="version"], [class*="release"]').slice(0, 20).map((_, el) => $(el).text().trim()).get();
+      const entries = $('ul li, .changelog li, [class*="item"]').length;
+      const hasBreaking = /breaking|breaking change|breaking change/i.test($.html());
+      
+      return {
+        kind: 'changelog',
+        framework: 'generic',
+        versionCount: versions.length,
+        versions,
+        entryCount: entries,
+        hasBreakingChanges: hasBreaking,
+        hasDates: $('time, [class*="date"]').length > 0,
+      };
+    },
+  },
+  // Generic: Article
   {
     kind: 'article',
     detect: ($, url) => $('article').length > 0
@@ -191,6 +305,7 @@ const structuredExtractors: StructuredExtractor[] = [
       };
     },
   },
+  // Generic: Docs
   {
     kind: 'docs',
     detect: ($, url) => url.pathname.includes('/docs')
@@ -214,6 +329,7 @@ const structuredExtractors: StructuredExtractor[] = [
       pathType: /\/(api|reference)(\/|$)/.test(url.pathname) ? 'reference' : 'guide',
     }),
   },
+  // Generic: Product
   {
     kind: 'product',
     detect: ($) => $('[itemprop="price"]').length > 0
@@ -234,6 +350,7 @@ const structuredExtractors: StructuredExtractor[] = [
       };
     },
   },
+  // Generic: Forum
   {
     kind: 'forum',
     detect: ($, url) => url.pathname.includes('/forum')

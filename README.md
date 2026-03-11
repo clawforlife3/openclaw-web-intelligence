@@ -40,8 +40,11 @@
 - **Robots Policy v1**：strict / balanced / off
 - **Monitor / Diff v1**：baseline snapshot + field diff
 - **Sitemap Ingestion v1**：sitemap.xml 發現 URL，與 map/crawl 整合
-- **Retry Classification v1**：標準類、fetch outcome化 retry reason 分 追蹤、shell detection 標記
-- **Host Policy Memory v1**：記住每個 host 的 fetch 歷史，動態調整 static/browser routing 決策
+- **Retry Classification v1**：標準化 retry reason 分類、fetch outcome 追蹤、shell detection 標記
+- **Host Policy Memory v1**：每個 host 的 fetch 歷史，動態調整 routing
+- **Site-specific Structured Extraction v2**：Docusaurus / MkDocs / GitHub Docs / Changelog 專用 extractors
+- **Browser Ops 部署文件**：Playwright 安裝與運維指南
+- **Per-domain Rate Limiting**：輕量級並發控制
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）

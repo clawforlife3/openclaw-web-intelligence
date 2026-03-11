@@ -10,6 +10,7 @@ import { evaluateRobotsPolicy, type RobotsMode, type RobotsEvaluation } from './
 import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js';
 import { classifyOutcome, isShellDetectionReason } from '../retry/retryClassifier.js';
 import { recordFetchOutcome, getPreferredStrategy } from '../retry/hostPolicyMemory.js';
+import { acquireRateLimitToken } from '../ratelimit/rateLimiter.js';
 
 interface QueueItem {
   url: string;
@@ -89,83 +90,92 @@ async function fetchPage(url: string, cache: PageCache) {
     };
   }
 
-  // Get host policy before making fetch decision
-  let hostPolicyStrategy: 'static' | 'browser' | 'unknown' = 'unknown';
+  // Acquire rate limit token before fetching
+  const releaseRateLimit = await acquireRateLimitToken(url);
+
   try {
-    const host = new URL(url).hostname;
-    hostPolicyStrategy = getPreferredStrategy(host);
-  } catch {
-    // Ignore URL parsing errors
-  }
+    // Get host policy before making fetch decision
+    let hostPolicyStrategy: 'static' | 'browser' | 'unknown' = 'unknown';
+    try {
+      const host = new URL(url).hostname;
+      hostPolicyStrategy = getPreferredStrategy(host);
+    } catch {
+      // Ignore URL parsing errors
+    }
 
-  const routed = await fetchWithRouter({
-    mode: 'crawl',
-    url,
-    renderMode: 'auto',
-    timeoutMs: 15_000,
-    retryMax: 1,
-    userAgent: 'OpenClaw-Web-Intelligence/0.1',
-    hostPolicyStrategy,
-  });
+    const routed = await fetchWithRouter({
+      mode: 'crawl',
+      url,
+      renderMode: 'auto',
+      timeoutMs: 15_000,
+      retryMax: 1,
+      userAgent: 'OpenClaw-Web-Intelligence/0.1',
+      hostPolicyStrategy,
+    });
 
-  let result = routed.fetchResult;
-  let finalStrategy: 'static' | 'browser' = result.via === 'browser' ? 'browser' : 'static';
-  let autoRetried = false;
-  let retryReason: RetryReason | undefined;
-  let fetchOutcome: FetchOutcome = finalStrategy === 'browser' ? 'success_browser' : 'success_static';
+    let result = routed.fetchResult;
+    let finalStrategy: 'static' | 'browser' = result.via === 'browser' ? 'browser' : 'static';
+    let autoRetried = false;
+    let retryReason: RetryReason | undefined;
+    let fetchOutcome: FetchOutcome = finalStrategy === 'browser' ? 'success_browser' : 'success_static';
 
-  if (finalStrategy === 'static') {
-    const staticDocument = extractDocument(result, { includeLinks: true, includeHtml: false, includeStructured: false });
-    const retryDecision = evaluateBrowserRetry(result, staticDocument);
-    if (retryDecision.shouldRetryWithBrowser) {
-      retryReason = retryDecision.reason;
-      try {
-        const browserResult = await browserFetch({
-          url,
-          timeoutMs: 15_000,
-          retryMax: 1,
-          userAgent: 'OpenClaw-Web-Intelligence/0.1',
-          waitUntil: 'domcontentloaded',
-        });
-        result = browserResult;
-        finalStrategy = 'browser';
-        autoRetried = true;
-        fetchOutcome = 'success_retry';
-      } catch (err) {
-        if (!(err instanceof ExtractError && err.code === 'BROWSER_UNAVAILABLE')) {
-          throw err;
+    if (finalStrategy === 'static') {
+      const staticDocument = extractDocument(result, { includeLinks: true, includeHtml: false, includeStructured: false });
+      const retryDecision = evaluateBrowserRetry(result, staticDocument);
+      if (retryDecision.shouldRetryWithBrowser) {
+        retryReason = retryDecision.reason;
+        try {
+          const browserResult = await browserFetch({
+            url,
+            timeoutMs: 15_000,
+            retryMax: 1,
+            userAgent: 'OpenClaw-Web-Intelligence/0.1',
+            waitUntil: 'domcontentloaded',
+          });
+          result = browserResult;
+          finalStrategy = 'browser';
+          autoRetried = true;
+          fetchOutcome = 'success_retry';
+        } catch (err) {
+          if (!(err instanceof ExtractError && err.code === 'BROWSER_UNAVAILABLE')) {
+            throw err;
+          }
+          // Browser unavailable, keep static result
+          fetchOutcome = 'failed_browser';
         }
-        // Browser unavailable, keep static result
-        fetchOutcome = 'failed_browser';
       }
     }
+
+    // Classify the outcome with retry metadata
+    const classification = classifyOutcome(fetchOutcome, retryReason, autoRetried);
+
+    // Record outcome to host policy memory
+    try {
+      const host = new URL(url).hostname;
+      recordFetchOutcome(host, classification.outcome, classification.wasShellDetection);
+    } catch {
+      // Ignore URL parsing errors for policy recording
+    }
+
+    cache.set(url, result);
+
+    return {
+      result,
+      cacheHit: false,
+      initialStrategy: routed.decision.strategy,
+      finalStrategy,
+      fallbackUsed: routed.fallbackUsed,
+      routeReason: routed.decision.reason,
+      autoRetried,
+      retryReason,
+      outcome: classification.outcome,
+      retryCount: classification.retryCount,
+      wasShellDetection: classification.wasShellDetection,
+    };
+  } finally {
+    // Always release rate limit token
+    releaseRateLimit();
   }
-
-  // Classify the outcome with retry metadata
-  const classification = classifyOutcome(fetchOutcome, retryReason, autoRetried);
-
-  // Record outcome to host policy memory
-  try {
-    const host = new URL(url).hostname;
-    recordFetchOutcome(host, classification.outcome, classification.wasShellDetection);
-  } catch {
-    // Ignore URL parsing errors for policy recording
-  }
-
-  cache.set(url, result);
-  return {
-    result,
-    cacheHit: false,
-    initialStrategy: routed.decision.strategy,
-    finalStrategy,
-    fallbackUsed: routed.fallbackUsed,
-    routeReason: routed.decision.reason,
-    autoRetried,
-    retryReason,
-    outcome: classification.outcome,
-    retryCount: classification.retryCount,
-    wasShellDetection: classification.wasShellDetection,
-  };
 }
 
 async function fetchLinks(url: string, cache: PageCache): Promise<string[]> {
