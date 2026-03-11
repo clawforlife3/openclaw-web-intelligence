@@ -2,6 +2,16 @@ import { map } from '../engines/crawl/crawler.js';
 import { search } from '../engines/search/search.js';
 import type { ResearchPlan, ResearchSource, ResearchTopicRequest } from '../types/schemas.js';
 
+export interface DiscoveryResult {
+  sources: ResearchSource[];
+  frontier: {
+    queries: string[];
+    candidateUrls: string[];
+    seedCount: number;
+    expandedCount: number;
+  };
+}
+
 function dedupeSources(items: ResearchSource[]): ResearchSource[] {
   const seen = new Set<string>();
   const results: ResearchSource[] = [];
@@ -64,7 +74,7 @@ async function expandPromisingDomains(
 export async function discoverResearchSources(
   request: ResearchTopicRequest,
   plan: ResearchPlan,
-): Promise<ResearchSource[]> {
+): Promise<DiscoveryResult> {
   const sourceResults: ResearchSource[] = [];
   const perQueryLimit = Math.max(3, Math.min(10, Math.ceil(request.maxBudgetPages / Math.max(plan.queries.length, 1))));
 
@@ -90,5 +100,14 @@ export async function discoverResearchSources(
 
   const dedupedSeeds = dedupeSources(sourceResults).slice(0, request.maxBudgetPages);
   const expanded = await expandPromisingDomains(request, dedupedSeeds);
-  return dedupeSources([...dedupedSeeds, ...expanded]).slice(0, request.maxBudgetPages);
+  const sources = dedupeSources([...dedupedSeeds, ...expanded]).slice(0, request.maxBudgetPages);
+  return {
+    sources,
+    frontier: {
+      queries: plan.queries,
+      candidateUrls: sources.map((source) => source.url),
+      seedCount: dedupedSeeds.length,
+      expandedCount: expanded.length,
+    },
+  };
 }

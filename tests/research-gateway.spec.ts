@@ -85,6 +85,7 @@ vi.mock('../src/engines/extract/httpExtractor.js', () => ({
 }));
 
 const { getResearchTask, getResearchTaskList, researchTopic, resumeResearchTask } = await import('../src/research/gateway.js');
+const { loadDiscoveryFrontier } = await import('../src/research/frontierStore.js');
 const { loadResearchTask } = await import('../src/research/store.js');
 
 describe('researchTopic', () => {
@@ -122,6 +123,10 @@ describe('researchTopic', () => {
     const task = loadResearchTask(result.data.taskId);
     expect(task?.status).toBe('completed');
     expect(task?.checkpoint?.documentCount).toBe(2);
+    const frontier = loadDiscoveryFrontier(result.data.taskId);
+    expect(frontier?.queries.length).toBeGreaterThan(0);
+    expect(frontier?.candidateUrls.length).toBeGreaterThan(0);
+    expect((frontier?.seedCount ?? 0) + (frontier?.expandedCount ?? 0)).toBeGreaterThan(0);
 
     const viaGetter = getResearchTask(result.data.taskId);
     expect(viaGetter?.taskId).toBe(result.data.taskId);

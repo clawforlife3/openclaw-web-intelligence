@@ -15,6 +15,7 @@ import { collectCorpus } from './collector.js';
 import { buildResearchCorpus, dedupeResearchDocuments } from './corpus.js';
 import { buildResearchReport } from './analysis.js';
 import { discoverResearchSources } from './discovery.js';
+import { saveDiscoveryFrontier } from './frontierStore.js';
 import { buildResearchPlan } from './planner.js';
 import { createTaskId } from './taskIds.js';
 import {
@@ -74,8 +75,18 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
     },
   });
 
-  const discoveredSources = await discoverResearchSources(request, plan);
-  const { rankedSources } = buildResearchCorpus(request, discoveredSources);
+  const discovered = await discoverResearchSources(request, plan);
+  saveDiscoveryFrontier({
+    taskId,
+    topic: request.topic,
+    queries: discovered.frontier.queries,
+    candidateUrls: discovered.frontier.candidateUrls,
+    seedCount: discovered.frontier.seedCount,
+    expandedCount: discovered.frontier.expandedCount,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const { rankedSources } = buildResearchCorpus(request, discovered.sources);
   const sources = rankedSources;
   updateResearchTask(taskId, {
     status: 'extracting',

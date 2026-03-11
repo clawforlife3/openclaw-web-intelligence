@@ -18,6 +18,7 @@
     "research": "tsx src/scripts/run-research.ts",
     "task-registry": "tsx src/scripts/run-task-registry.ts",
     "briefing": "tsx src/scripts/run-briefing.ts",
+    "frontier": "tsx src/scripts/run-frontier.ts",
     "crawl-domain": "tsx src/scripts/run-crawl-domain.ts",
     "monitor-topic": "tsx src/scripts/run-monitor-topic.ts",
     "monitor-cycle": "tsx src/scripts/run-monitor-cycle.ts",

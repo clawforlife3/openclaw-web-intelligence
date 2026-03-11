@@ -35,3 +35,4 @@ export { buildTopicMonitoringDigest, listMonitoringDeliveries } from '../researc
 export { processDueMonitorTopicTasks } from '../research/monitoringRunner.js';
 export { acquireMonitoringCycleLease, getMonitoringCycleLease, releaseMonitoringCycleLease } from '../research/runnerState.js';
 export { buildTaskBriefing, buildTopicBriefing } from '../research/briefing.js';
+export { listDiscoveryFrontiers, loadDiscoveryFrontier } from '../research/frontierStore.js';
