@@ -544,6 +544,9 @@ export const MonitorTopicResponseSchema = z.object({
     changedPages: z.array(z.string().url()),
     alerts: z.array(z.string()),
     updatedSummary: z.string(),
+    relatedResearchTaskId: z.string().optional(),
+    reportSummary: z.string().optional(),
+    reportInsights: z.array(z.string()).optional(),
   }),
   meta: CommonMetaSchema.optional(),
 });

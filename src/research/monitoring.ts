@@ -9,6 +9,7 @@ import {
 import { generateRequestId, generateTraceId } from '../types/utils.js';
 import { buildResearchPlan } from './planner.js';
 import { getNextMonitoringRunAt } from './monitoringScheduler.js';
+import { researchTopic } from './gateway.js';
 import {
   loadMonitorTopicTask,
   listMonitorTopicTasks,
@@ -62,6 +63,27 @@ async function buildTopicTargets(topic: string, watchDomains: string[], queryTem
     .map((template) => `https://search.invalid/?q=${encodeURIComponent(`${template} ${topic}`)}`);
 }
 
+async function refreshTopicResearch(task: StoredMonitorTopicTask) {
+  const result = await researchTopic({
+    topic: task.request.topic,
+    goal: 'monitor',
+    timeRange: undefined,
+    region: undefined,
+    language: 'zh-TW',
+    sourcePreferences: [],
+    freshness: 'week',
+    maxBudgetPages: Math.max(10, Math.min(30, task.watchList.length * 5 || 15)),
+    maxRuntimeMinutes: 30,
+    outputFormat: 'report',
+  });
+
+  return {
+    taskId: result.data.taskId,
+    summary: result.data.report.executiveSummary,
+    insights: result.data.report.keyInsights,
+  };
+}
+
 async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<MonitorTopicResponse> {
   const started = Date.now();
   const requestId = generateRequestId();
@@ -100,6 +122,13 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     : `Monitoring baseline created for topic "${task.request.topic}".`;
   const runCount = task.runCount + 1;
   const lastRunAt = new Date().toISOString();
+  const shouldRefreshResearch = task.runCount === 0 || changedPages.length > 0 || !task.latestResearchTaskId;
+  const researchUpdate = shouldRefreshResearch
+    ? await refreshTopicResearch({
+      ...task,
+      watchList: targets,
+    })
+    : null;
 
   saveMonitorTopicTask({
     ...task,
@@ -111,6 +140,12 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     alerts,
     updatedSummary,
     runCount,
+    researchTaskIds: researchUpdate
+      ? [...task.researchTaskIds, researchUpdate.taskId]
+      : task.researchTaskIds,
+    latestResearchTaskId: researchUpdate?.taskId ?? task.latestResearchTaskId,
+    reportSummary: researchUpdate?.summary ?? task.reportSummary,
+    reportInsights: researchUpdate?.insights ?? task.reportInsights,
     lastRunAt,
     nextRunAt: getNextMonitoringRunAt(task.request.schedule, new Date(lastRunAt)),
     updatedAt: lastRunAt,
@@ -128,6 +163,9 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
       changedPages,
       alerts,
       updatedSummary,
+      relatedResearchTaskId: researchUpdate?.taskId ?? task.latestResearchTaskId,
+      reportSummary: researchUpdate?.summary ?? task.reportSummary,
+      reportInsights: researchUpdate?.insights ?? task.reportInsights,
     },
     meta: {
       requestId,
@@ -152,6 +190,7 @@ export async function monitorTopic(input: MonitorTopicRequest): Promise<MonitorT
     alerts: [],
     updatedSummary: `Monitoring baseline created for topic "${request.topic}".`,
     runCount: 0,
+    researchTaskIds: [],
     createdAt: now,
     updatedAt: now,
   };

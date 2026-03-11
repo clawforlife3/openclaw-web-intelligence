@@ -1,5 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/research/gateway.js', () => ({
+  researchTopic: vi.fn(async ({ topic }: { topic: string }) => ({
+    success: true,
+    data: {
+      taskId: `research_for_${topic}`,
+      report: {
+        executiveSummary: `Research report refreshed for ${topic}.`,
+        keyInsights: [`Fresh monitoring insight for ${topic}.`],
+      },
+    },
+    meta: {},
+  })),
+}));
+
 vi.mock('../src/engines/search/search.js', () => ({
   search: vi.fn(async ({ query }: { query: string }) => ({
     success: true,
@@ -61,6 +75,9 @@ describe('monitorTopic', () => {
     expect(result.data.changedPages).toHaveLength(1);
     expect(result.data.alerts.length).toBeGreaterThan(0);
     expect(result.data.runCount).toBe(1);
+    expect(result.data.relatedResearchTaskId).toBe('research_for_品牌負評');
+    expect(result.data.reportSummary).toContain('品牌負評');
+    expect(result.data.reportInsights?.length).toBeGreaterThan(0);
   });
 
   it('persists monitoring tasks and supports reruns', async () => {
@@ -76,9 +93,12 @@ describe('monitorTopic', () => {
     expect(stored?.topic).toBe('AI SEO 工具');
     expect(stored?.watchList.length).toBeGreaterThan(0);
     expect(stored?.watchList.some((url) => url.includes('forum.example.com'))).toBe(true);
+    expect(stored?.latestResearchTaskId).toBe('research_for_AI SEO 工具');
+    expect(stored?.researchTaskIds).toContain('research_for_AI SEO 工具');
 
     const rerun = await rerunMonitorTopicTask(created.data.taskId);
     expect(rerun?.data.runCount).toBe(2);
+    expect(rerun?.data.relatedResearchTaskId).toBe('research_for_AI SEO 工具');
 
     const tasks = getMonitorTopicTaskList();
     expect(tasks.some((task) => task.taskId === created.data.taskId)).toBe(true);

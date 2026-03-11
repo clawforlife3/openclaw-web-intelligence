@@ -12,6 +12,10 @@ export interface StoredMonitorTopicTask {
   alerts: string[];
   updatedSummary: string;
   runCount: number;
+  researchTaskIds: string[];
+  latestResearchTaskId?: string;
+  reportSummary?: string;
+  reportInsights?: string[];
   lastRunAt?: string;
   nextRunAt?: string;
   createdAt: string;
