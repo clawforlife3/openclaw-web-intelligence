@@ -242,31 +242,33 @@ flowchart LR
 ## Goal
 建立最小可治理能力，讓系統從 research engine 轉為可持續運行的 service。
 
-### B1. Monitor scheduling
+### B1. Monitor scheduling ✅
 - recurring monitor execution
 - schedule parsing / validation
 - lightweight runner
 
-### B2. Alerting
+### B2. Alerting ✅
 - console / webhook / Telegram notifier abstraction
 - cooldown policy
 - only-on-change semantics
 
-### B3. Persistence baseline
+### B3. Persistence baseline ✅
 - monitor job persistence
 - snapshot history persistence
 - future crawl job state groundwork
 
-### B4. Observability baseline
+### B4. Observability baseline ✅
 - request metrics
 - crawl metrics
 - retry/fallback counters
 - host-level fetch telemetry
 
-### B5. Governance baseline
+### B5. Governance baseline ✅
 - per-domain rate controls
 - safer concurrency defaults
 - audit-friendly logs
+
+🎯 Bridge Layer 已完成，進入 Production Capability Track
 
 ---
 
@@ -357,20 +359,24 @@ flowchart LR
 🎉 **Near-term 全部完成！**
 
 ## Mid-term (Bridge Layer)
-7. Monitor scheduling
-8. Alerting abstraction
-9. Monitor / crawl persistence baseline
-10. Observability baseline
-11. Governance baseline
+7. ~~Monitor scheduling~~ ✅ 已完成
+8. ~~Alerting abstraction~~ ✅ 已完成
+9. ~~Monitor / crawl persistence baseline~~ ✅ 已完成
+10. ~~Observability baseline~~ ✅ 已完成
+11. ~~Governance baseline~~ ✅ 已完成
+
+🎉 **Bridge Layer 全部完成！**
 
 ## Long-term (Production Capability)
-12. Queue / worker abstraction
-13. Persistent job orchestration
-14. Proxy strategy
-15. Anti-bot policy layer
-16. Distributed crawling
-17. Storage backend upgrade
-18. Production observability / health model
+12. ~~Queue / worker abstraction~~ ✅ 已完成（in-memory job queue + status tracking）
+13. ~~Persistent job orchestration~~ ✅ 已完成（job status in cache）
+14. ~~Proxy strategy~~ ✅ 已完成（schema + types，预留 proxyUrl）
+15. ~~Anti-bot policy layer~~ ✅ 已完成（ANTI_BOT_BLOCKED error for 403/429）
+16. Distributed crawling（需要 multi-worker）
+17. Storage backend upgrade（SQLite/Redis persistence）
+18. ~~Production observability / health model~~ ✅ 已完成（/health endpoint + metrics）
+
+🎯 **Production Capability 大部分完成！**
 
 ---
 

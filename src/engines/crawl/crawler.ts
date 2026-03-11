@@ -11,6 +11,7 @@ import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js'
 import { classifyOutcome, isShellDetectionReason } from '../retry/retryClassifier.js';
 import { recordFetchOutcome, getPreferredStrategy } from '../retry/hostPolicyMemory.js';
 import { acquireRateLimitToken } from '../ratelimit/rateLimiter.js';
+import { incrementMetric } from '../../observability/metrics.js';
 
 interface QueueItem {
   url: string;
@@ -308,6 +309,7 @@ export async function crawl(request: z.input<typeof CrawlRequestSchema>): Promis
   const started = Date.now();
   const pageCache = new PageCache({ enabled: input.cacheTtlSeconds !== 0, ttlSeconds: input.cacheTtlSeconds });
   const debug = createDebugState();
+  incrementMetric('crawlRuns');
 
   const seedUrl = input.seedUrl;
   const limit = input.limit;

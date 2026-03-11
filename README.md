@@ -45,6 +45,10 @@
 - **Site-specific Structured Extraction v2**：Docusaurus / MkDocs / GitHub Docs / Changelog 專用 extractors
 - **Browser Ops 部署文件**：Playwright 安裝與運維指南
 - **Per-domain Rate Limiting**：輕量級並發控制
+- **Job Queue / Worker**：crawl job 排程與狀態追蹤
+- **Health Endpoint**：production 健康檢查
+- **Anti-bot Detection**：403/429 偵測並拋出 ANTI_BOT_BLOCKED 錯誤
+- **Proxy Support (schema)**：proxyUrl 參數預留
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）
@@ -536,15 +540,18 @@ npm run test
 
 ## 現在最值得繼續開發的方向
 
-如果目標是更強的 research crawler，建議優先順序：
-1. sitemap ingestion
-2. retry classification
-3. host policy memory
-4. 更多 site-specific structured extraction
-5. browser ops / deployment docs
-6. lightweight per-domain rate limiting
+✅ Research Strengthening 與 Bridge Layer 已完成。
 
-若要看完整的 research → bridge → production 路線，請直接看 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
+下一階段進入 **Production Capability Track**，建議優先順序：
+1. Queue / worker abstraction
+2. Persistent job orchestration
+3. Proxy strategy
+4. Anti-bot policy layer
+5. Distributed crawling
+6. Storage backend upgrade
+7. Production observability / health model
+
+完整路線請見 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
 
 ---
 
@@ -553,6 +560,7 @@ npm run test
 - [CURRENT_STATE.md](./docs/CURRENT_STATE.md)
 - [ROADMAP.md](./docs/ROADMAP.md)
 - [RESEARCH_TO_PRODUCTION_PLAN.md](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
+- [BROWSER_OPS.md](./docs/BROWSER_OPS.md)
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [PRD](./docs/openclaw-web-intelligence-prd.md)
 - [SDD](./docs/openclaw-web-intelligence-sdd.md)

@@ -34,6 +34,7 @@ export const ExtractRequestSchema = z.object({
   timeoutMs: z.number().int().positive().max(120_000).optional().default(15_000),
   retryMax: z.number().int().min(0).max(3).optional().default(1),
   userAgent: z.string().min(3).optional().default('OpenClaw-Web-Intelligence/0.1'),
+  proxyUrl: z.string().url().optional(),
   allowDomains: z.array(z.string().min(1)).optional().default([]),
   denyDomains: z.array(z.string().min(1)).optional().default([]),
 });
@@ -181,6 +182,7 @@ export const MapRequestSchema = z.object({
   robotsMode: z.enum(['strict', 'balanced', 'off']).optional().default('balanced'),
   cacheTtlSeconds: z.number().int().min(0).optional().default(1800),
   discoverFromSitemap: z.boolean().optional().default(false),
+  proxyUrl: z.string().url().optional(),
 });
 
 export const MapResultSchema = z.object({

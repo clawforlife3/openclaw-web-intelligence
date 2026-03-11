@@ -5,6 +5,7 @@ export interface StaticFetchRequest {
   timeoutMs: number;
   retryMax: number;
   userAgent: string;
+  proxyUrl?: string;
   conditional?: {
     etag?: string;
     lastModified?: string;
@@ -69,6 +70,13 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
 
       const responseHeaders = Object.fromEntries(res.headers.entries());
       const validators = extractValidators(responseHeaders);
+
+      if (res.status === 403 || res.status === 429) {
+        throw new ExtractError('ANTI_BOT_BLOCKED', `Blocked by anti-bot or rate limiting: ${res.status}`, true, {
+          url: request.url,
+          status: res.status,
+        });
+      }
 
       if (res.status === 304) {
         const previous = request.conditional?.previousResult;

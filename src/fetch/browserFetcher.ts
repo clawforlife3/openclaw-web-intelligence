@@ -54,7 +54,10 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
   let screenshotPath: string | undefined;
 
   try {
-    browser = await playwright.chromium.launch({ headless: true });
+    browser = await playwright.chromium.launch({
+      headless: true,
+      proxy: request.proxyUrl ? { server: request.proxyUrl } : undefined,
+    });
     const context = await browser.newContext({
       userAgent: request.userAgent,
       viewport: { width: 1440, height: 900 },
@@ -75,6 +78,13 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
     }
 
     const statusCode = response.status();
+    if (statusCode === 403 || statusCode === 429) {
+      throw new ExtractError('ANTI_BOT_BLOCKED', `Blocked by anti-bot or rate limiting: ${statusCode}`, true, {
+        url: request.url,
+        status: statusCode,
+        via: 'browser',
+      });
+    }
     if (statusCode < 200 || statusCode >= 400) {
       throw new ExtractError('FETCH_HTTP_ERROR', `HTTP ${statusCode} on ${request.url}`, statusCode >= 500, {
         url: request.url,

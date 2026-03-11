@@ -11,6 +11,7 @@ export type ExtractErrorCode =
   | 'FETCH_HTTP_ERROR'
   | 'PARSE_ERROR'
   | 'BROWSER_UNAVAILABLE'
+  | 'ANTI_BOT_BLOCKED'
   | 'INTERNAL_ERROR';
 
 export class ExtractError extends Error {

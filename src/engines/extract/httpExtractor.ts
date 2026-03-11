@@ -5,6 +5,7 @@ import { browserFetch } from '../../fetch/browserFetcher.js';
 import { fetchWithRouter } from '../../fetch/fetchWithRouter.js';
 import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipeline.js';
 import { logExtractRequest } from '../../observability/requestLogger.js';
+import { incrementMetric } from '../../observability/metrics.js';
 import { getPreferredStrategy, recordFetchOutcome } from '../retry/hostPolicyMemory.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
@@ -210,6 +211,7 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
 
     ExtractResponseSchema.parse(output);
     requestCache.set(input as unknown as Record<string, unknown>, output);
+    incrementMetric('extractRuns');
 
     await logExtractRequest({
       requestId,

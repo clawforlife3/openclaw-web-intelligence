@@ -32,8 +32,9 @@
 - Near-term 全部完成 🎉
 
 ### Production Crawler
-- **完成度：約 35%–45%**
-- 尚缺：rate limiting、proxy strategy、persistent storage/ops、distributed queue、monitor/diff、更完整 observability
+- **完成度：約 55%–65%**
+- 已實作：queue/worker abstraction、job status tracking、proxyUrl schema、anti-bot detection (ANTI_BOT_BLOCKED)、health endpoint
+- 尚缺：distributed crawl、storage backend upgrade
 
 ## Implemented vs Planned
 
@@ -91,7 +92,10 @@
 🎉 **Near-term 全部完成！**
 
 ### Mid-term（Bridge Layer）
-7. 新增 recurring schedule
-8. 補 alerting abstraction
-9. 補 monitor / crawl persistence baseline
-10. 補 observability baseline
+7. ~~新增 recurring schedule~~ ✅ 已完成
+8. ~~補 alerting abstraction~~ ✅ 已完成
+9. ~~補 monitor / crawl persistence baseline~~ ✅ 已完成
+10. ~~補 observability baseline~~ ✅ 已完成
+11. ~~補 governance baseline~~ ✅ 已完成
+
+🎯 **Bridge Layer 已完成，準備進入 Production Capability Track**

@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { getCache } from '../storage/cache.js';
 import { extract } from '../engines/extract/httpExtractor.js';
 import { crawl } from '../engines/crawl/crawler.js';
 import {
@@ -11,21 +10,14 @@ import {
   type ExtractedDocument,
 } from '../types/schemas.js';
 import { generateRequestId, generateTraceId } from '../types/utils.js';
-
-interface StoredMonitorJob {
-  monitorJobId: string;
-  request: MonitorRequest;
-  snapshot?: MonitorSnapshot;
-  lastCheckedAt?: string;
-}
+import { loadMonitorJob, saveMonitorJob, appendHistory, type StoredMonitorJob } from './monitorStore.js';
+import { notifyIfNeeded } from './alerting.js';
+import { incrementMetric } from '../observability/metrics.js';
 
 function hashValue(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function makeMonitorKey(target: string): string {
-  return `monitor:${target}`;
-}
 
 function summarizeDocument(document: ExtractedDocument): MonitorSnapshot {
   return {
@@ -106,20 +98,26 @@ export async function monitor(input: unknown): Promise<MonitorResponse> {
   const traceId = generateTraceId();
   const started = Date.now();
   const request = MonitorRequestSchema.parse(input);
-  const cache = getCache({ enabled: true, ttlSeconds: 0 });
-  const key = makeMonitorKey(request.target);
 
-  const previous = cache.get(key) as StoredMonitorJob | null;
+  const previous = loadMonitorJob(request.target);
   const snapshot = await runExecution(request);
   const change = diffSnapshots(previous?.snapshot, snapshot);
+  incrementMetric('monitorRuns');
+  if (change.changed) {
+    incrementMetric('monitorChanges');
+  }
 
-  const stored: StoredMonitorJob = {
+  let stored: StoredMonitorJob = {
     monitorJobId: previous?.monitorJobId ?? `mon_${randomBytes(6).toString('hex')}`,
     request,
     snapshot,
     lastCheckedAt: new Date().toISOString(),
+    createdAt: previous?.createdAt ?? new Date().toISOString(),
+    history: previous?.history ?? [],
   };
-  cache.set(key, stored);
+
+  stored = appendHistory(stored, snapshot);
+  saveMonitorJob(request.target, stored);
 
   const response: MonitorResponse = {
     success: true,
@@ -138,6 +136,16 @@ export async function monitor(input: unknown): Promise<MonitorResponse> {
       schemaVersion: 'v1',
     },
   };
+
+  // Alerting (console by default)
+  await notifyIfNeeded(request, {
+    monitorJobId: stored.monitorJobId,
+    target: request.target,
+    changed: change.changed,
+    change,
+    snapshot,
+    checkedAt: new Date().toISOString(),
+  });
 
   MonitorResponseSchema.parse(response);
   return response;

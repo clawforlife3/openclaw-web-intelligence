@@ -5,7 +5,10 @@ export { discoverSitemap, filterSitemapUrls, buildSitemapUrls } from '../engines
 export { classifyOutcome, isShellDetectionReason, getRetryReasonLabels } from '../engines/retry/retryClassifier.js';
 export { getHostPolicy, getPreferredStrategy, getHostPolicyStats, clearHostPolicy } from '../engines/retry/hostPolicyMemory.js';
 export { acquireRateLimitToken, setRateLimitConfig, clearRateLimitConfig, getRateLimitStats, isRateLimited } from '../engines/ratelimit/rateLimiter.js';
+export { getMetrics, resetMetrics } from '../observability/metrics.js';
 export { route } from '../router/retrievalRouter.js';
+export { enqueueJob, getJob, listJobs, processJob } from '../queue/jobQueue.js';
+export { healthCheck } from '../observability/health.js';
 export { fetchWithRouter } from '../fetch/fetchWithRouter.js';
 export { browserFetch } from '../fetch/browserFetcher.js';
 export { monitor } from '../monitor/monitor.js';
