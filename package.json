@@ -14,7 +14,8 @@
     "search": "tsx src/scripts/run-search.ts",
     "map": "tsx src/scripts/run-map.ts",
     "crawl": "tsx src/scripts/run-crawl.ts",
-    "cache": "tsx src/scripts/run-cache.ts"
+    "cache": "tsx src/scripts/run-cache.ts",
+    "worker": "tsx src/scripts/crawl-worker.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

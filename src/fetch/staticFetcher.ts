@@ -1,5 +1,6 @@
 import { ExtractError } from '../types/errors.js';
 import { getProxyPool, type Proxy } from '../proxy/pool.js';
+import { getEvasionManager } from '../anti-bot/evasion.js';
 
 export interface StaticFetchRequest {
   url: string;
@@ -57,6 +58,12 @@ function buildRequestHeaders(request: StaticFetchRequest): Record<string, string
 export async function staticFetch(request: StaticFetchRequest): Promise<StaticFetchResult> {
   let lastErr: unknown;
 
+  // Apply evasion delay and get evasion headers if enabled
+  const evasion = getEvasionManager();
+  if (evasion) {
+    await evasion.delay();
+  }
+
   for (let attempt = 0; attempt <= request.retryMax; attempt += 1) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), request.timeoutMs);
@@ -75,10 +82,16 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       }
     }
 
+    // Get evasion headers if enabled
+    let evasionHeaders: Record<string, string> = {};
+    if (evasion) {
+      evasionHeaders = evasion.getHeaders();
+    }
+
     const fetchOptions: RequestInit = {
       redirect: 'follow',
       signal: ctrl.signal,
-      headers: buildRequestHeaders(request),
+      headers: { ...buildRequestHeaders(request), ...evasionHeaders },
     };
 
     try {
@@ -92,6 +105,17 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
         const pool = getProxyPool();
         if (pool) {
           pool.reportResult(proxy.id, res.ok, latency);
+        }
+      }
+
+      // Check for blocking if evasion is enabled
+      if (evasion) {
+        const analysis = evasion.analyzeResponse(res.status, Object.fromEntries(res.headers.entries()));
+        if (analysis.blocked) {
+          throw new ExtractError('ANTI_BOT_BLOCKED', analysis.reason || 'Blocked by anti-bot', true, {
+            url: request.url,
+            status: res.status,
+          });
         }
       }
 

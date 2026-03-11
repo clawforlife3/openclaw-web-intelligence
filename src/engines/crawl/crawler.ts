@@ -11,6 +11,7 @@ import { discoverSitemap, filterSitemapUrls } from '../sitemap/sitemapParser.js'
 import { classifyOutcome, isShellDetectionReason } from '../retry/retryClassifier.js';
 import { recordFetchOutcome, getPreferredStrategy } from '../retry/hostPolicyMemory.js';
 import { acquireRateLimitToken } from '../ratelimit/rateLimiter.js';
+import { getAdvancedLimiter } from '../../ratelimit/advanced.js';
 import { incrementMetric } from '../../observability/metrics.js';
 
 interface QueueItem {
@@ -92,6 +93,16 @@ async function fetchPage(url: string, cache: PageCache) {
   }
 
   // Acquire rate limit token before fetching
+  let releaseAdvanced: (() => void) | null = null;
+  
+  // Try advanced rate limiter first, fall back to basic
+  const advancedLimiter = getAdvancedLimiter();
+  if (advancedLimiter) {
+    const domain = new URL(url).hostname;
+    await advancedLimiter.acquire(domain);
+    releaseAdvanced = () => advancedLimiter.release(domain);
+  }
+  
   const releaseRateLimit = await acquireRateLimitToken(url);
 
   try {
@@ -174,7 +185,10 @@ async function fetchPage(url: string, cache: PageCache) {
       wasShellDetection: classification.wasShellDetection,
     };
   } finally {
-    // Always release rate limit token
+    // Always release rate limit tokens
+    if (releaseAdvanced) {
+      releaseAdvanced();
+    }
     releaseRateLimit();
   }
 }
