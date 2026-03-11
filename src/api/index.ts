@@ -33,3 +33,4 @@ export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from 
 export { getRelatedRegisteredTasks, listRegisteredTasks, loadRegisteredTask } from '../research/taskRegistry.js';
 export { buildTopicMonitoringDigest, listMonitoringDeliveries } from '../research/delivery.js';
 export { processDueMonitorTopicTasks } from '../research/monitoringRunner.js';
+export { acquireMonitoringCycleLease, getMonitoringCycleLease, releaseMonitoringCycleLease } from '../research/runnerState.js';

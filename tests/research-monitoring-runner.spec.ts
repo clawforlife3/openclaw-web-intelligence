@@ -43,6 +43,7 @@ vi.mock('../src/monitor/monitor.js', () => ({
 const { monitorTopic } = await import('../src/research/monitoring.js');
 const { processDueMonitorTopicTasks } = await import('../src/research/monitoringRunner.js');
 const { loadMonitorTopicTask, updateMonitorTopicTask } = await import('../src/research/monitoringStore.js');
+const { acquireMonitoringCycleLease, releaseMonitoringCycleLease } = await import('../src/research/runnerState.js');
 
 describe('monitoring runner', () => {
   monitorMock.mockImplementation(async () => ({
@@ -79,10 +80,31 @@ describe('monitoring runner', () => {
       limit: 10,
     });
 
+    expect(result.skipped).toBe(false);
     expect(result.dueCount).toBeGreaterThan(0);
     expect(result.succeeded).toContain(created.data.taskId);
+    expect(result.topicDigests.some((digest) => digest.topic === '批次監控')).toBe(true);
 
     const updated = loadMonitorTopicTask(created.data.taskId);
     expect(updated?.runCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('skips processing when another cycle lease is active', async () => {
+    const lease = acquireMonitoringCycleLease({
+      now: new Date('2026-03-11T00:00:00.000Z'),
+      ttlMs: 60_000,
+      holderId: 'test-holder',
+    });
+    expect(lease?.holderId).toBe('test-holder');
+
+    const result = await processDueMonitorTopicTasks({
+      now: new Date('2026-03-11T00:00:01.000Z'),
+      limit: 10,
+    });
+
+    expect(result.skipped).toBe(true);
+    expect(result.processedCount).toBe(0);
+
+    releaseMonitoringCycleLease('test-holder');
   });
 });
