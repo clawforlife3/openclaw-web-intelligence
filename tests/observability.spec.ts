@@ -8,10 +8,12 @@ import {
   setQueueMetrics,
 } from '../src/observability/metrics.js';
 import { healthCheck } from '../src/observability/health.js';
+import { resetBrowserRuntimeConfig, setBrowserRuntimeConfig } from '../src/fetch/browserRuntime.js';
 
 describe('observability metrics', () => {
   beforeEach(() => {
     resetMetrics();
+    resetBrowserRuntimeConfig();
   });
 
   it('records per-domain success, latency, and retry distribution', () => {
@@ -37,9 +39,21 @@ describe('observability metrics', () => {
     incrementMetric('extractRuns');
     setQueueMetrics({ depth: 3, processing: 1, workerAlive: 2 });
     setProxyMetrics({ total: 4, healthy: 3, unhealthy: 1 });
+    setBrowserRuntimeConfig({
+      mode: 'remote-cdp',
+      cdpUrl: 'http://127.0.0.1:9222',
+      attachOnly: true,
+      profileName: 'windows-default',
+    });
 
     const response = healthCheck();
     expect(response.metrics.extractRuns).toBe(1);
+    expect(response.browserRuntime).toEqual({
+      mode: 'remote-cdp',
+      attachOnly: true,
+      profileName: 'windows-default',
+      cdpConfigured: true,
+    });
     expect(response.summary).toEqual({
       workerAlive: 2,
       proxyHealthy: 3,

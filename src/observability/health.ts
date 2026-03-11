@@ -1,10 +1,17 @@
 import { getMetrics } from '../observability/metrics.js';
 import { listJobs } from '../queue/jobQueue.js';
+import { getBrowserRuntimeConfig } from '../fetch/browserRuntime.js';
 
 export interface HealthResponse {
   status: 'healthy' | 'degraded';
   timestamp: string;
   metrics: ReturnType<typeof getMetrics>;
+  browserRuntime: {
+    mode: 'launch' | 'remote-cdp';
+    attachOnly: boolean;
+    profileName?: string;
+    cdpConfigured: boolean;
+  };
   queue: {
     totalJobs: number;
     queued: number;
@@ -22,6 +29,7 @@ export interface HealthResponse {
 export function healthCheck(): HealthResponse {
   const metrics = getMetrics();
   const jobs = listJobs();
+  const browserRuntime = getBrowserRuntimeConfig();
 
   const queue = {
     totalJobs: jobs.length,
@@ -37,6 +45,12 @@ export function healthCheck(): HealthResponse {
     status,
     timestamp: new Date().toISOString(),
     metrics,
+    browserRuntime: {
+      mode: browserRuntime.mode,
+      attachOnly: browserRuntime.attachOnly,
+      profileName: browserRuntime.profileName,
+      cdpConfigured: Boolean(browserRuntime.cdpUrl),
+    },
     queue,
     summary: {
       workerAlive: metrics.queue.workerAlive,
