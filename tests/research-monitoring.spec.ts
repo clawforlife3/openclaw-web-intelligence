@@ -1,5 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/engines/search/search.js', () => ({
+  search: vi.fn(async ({ query }: { query: string }) => ({
+    success: true,
+    data: {
+      query,
+      provider: 'mock',
+      results: [
+        {
+          url: 'https://news.example.com/post',
+          title: 'News result',
+          snippet: 'News snippet',
+          rank: 1,
+          domain: 'news.example.com',
+        },
+        {
+          url: 'https://forum.example.com/thread',
+          title: 'Forum result',
+          snippet: 'Forum snippet',
+          rank: 2,
+          domain: 'forum.example.com',
+        },
+      ],
+    },
+    meta: {},
+  })),
+}));
+
 vi.mock('../src/monitor/monitor.js', () => ({
   monitor: vi.fn(async ({ target }: { target: string }) => ({
     success: true,
@@ -48,6 +75,7 @@ describe('monitorTopic', () => {
     const stored = getMonitorTopicTask(created.data.taskId);
     expect(stored?.topic).toBe('AI SEO 工具');
     expect(stored?.watchList.length).toBeGreaterThan(0);
+    expect(stored?.watchList.some((url) => url.includes('forum.example.com'))).toBe(true);
 
     const rerun = await rerunMonitorTopicTask(created.data.taskId);
     expect(rerun?.data.runCount).toBe(2);

@@ -1,4 +1,5 @@
 import { monitor } from '../monitor/monitor.js';
+import { search } from '../engines/search/search.js';
 import {
   MonitorTopicRequestSchema,
   MonitorTopicResponseSchema,
@@ -15,7 +16,11 @@ import {
   type StoredMonitorTopicTask,
 } from './monitoringStore.js';
 
-function buildTopicTargets(topic: string, watchDomains: string[], queryTemplates: string[]): string[] {
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+async function buildTopicTargets(topic: string, watchDomains: string[], queryTemplates: string[]): Promise<string[]> {
   const explicit = watchDomains.map((domain) => (domain.startsWith('http') ? domain : `https://${domain}`));
   if (explicit.length > 0) return explicit;
 
@@ -34,6 +39,24 @@ function buildTopicTargets(topic: string, watchDomains: string[], queryTemplates
       outputFormat: 'summary',
     }).queries.slice(0, 3);
 
+  const discoveredTargets: string[] = [];
+  for (const template of effectiveTemplates.slice(0, 3)) {
+    try {
+      const result = await search({
+        query: template,
+        maxResults: 2,
+      });
+      discoveredTargets.push(...result.data.results.map((item) => item.url).filter(Boolean));
+    } catch {
+      // fall through to placeholder targets when search is unavailable
+    }
+  }
+
+  const dedupedTargets = uniqueStrings(discoveredTargets).slice(0, 5);
+  if (dedupedTargets.length > 0) {
+    return dedupedTargets;
+  }
+
   return effectiveTemplates
     .slice(0, 3)
     .map((template) => `https://search.invalid/?q=${encodeURIComponent(`${template} ${topic}`)}`);
@@ -43,7 +66,7 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
   const started = Date.now();
   const requestId = generateRequestId();
   const traceId = generateTraceId();
-  const targets = buildTopicTargets(task.request.topic, task.request.watchDomains, task.request.queryTemplates);
+  const targets = await buildTopicTargets(task.request.topic, task.request.watchDomains, task.request.queryTemplates);
 
   const changedPages: string[] = [];
   const alerts: string[] = [];
