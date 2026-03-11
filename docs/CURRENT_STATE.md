@@ -70,12 +70,14 @@
    - ✅ v1 已完成並通過測試（2026-03-11）
    - 首次建立 baseline snapshot
    - title / text / structured / urlCount 差異偵測
-   - 尚缺：recurring schedule、alerting 機制
+   - ✅ recurring schedule（scheduler.ts）
+   - ✅ alerting 機制（alerting.ts: Console/Webhook）
 
 5. **Productionization**
-   - 缺 per-domain rate limiting
-   - 缺 proxy/distributed execution
-   - 缺更完整 metrics / persistence
+   - ✅ per-domain rate limiting
+   - ✅ proxy schema 預留（proxyUrl）
+   - ✅ metrics + health endpoint
+   - ✅ job queue / status tracking
 
 ## Recommended Next Steps
 
