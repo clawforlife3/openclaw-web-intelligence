@@ -100,6 +100,7 @@ export OPENCLAW_BROWSER_PROFILE_NAME=windows-default
 之後執行：
 
 ```bash
+npm run browser-runtime
 npm run research -- --topic "台灣 CRM 市場"
 npm run extract -- --url https://example.com --render-mode=browser
 node dist/scripts/crawl-worker.js --redis-url redis://localhost:6379 --queue crawl-jobs
@@ -173,6 +174,12 @@ const { chromium } = require('playwright');
 ```
 
 ### 驗證 Remote CDP
+
+```bash
+npm run browser-runtime
+```
+
+如果你想直接用 Playwright 驗證：
 
 ```bash
 node -e "

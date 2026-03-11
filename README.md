@@ -837,6 +837,7 @@ export OPENCLAW_BROWSER_PROFILE_NAME=windows-default
 ```
 
 設定後，`research`、`extract`、`crawl-worker` 都會使用相同 browser runtime 設定。
+可以先用 `npm run browser-runtime` 檢查 remote CDP endpoint 是否可連、是否已有可重用 context。
 詳細操作方式見 [BROWSER_OPS.md](./docs/BROWSER_OPS.md)。
 
 ---

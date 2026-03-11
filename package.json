@@ -14,6 +14,7 @@
     "test:proxy": "vitest run tests/proxy-pool.spec.ts tests/proxy-integration.spec.ts",
     "test:watch": "vitest",
     "extract": "tsx src/scripts/run-extract.ts",
+    "browser-runtime": "tsx src/scripts/run-browser-runtime.ts",
     "search": "tsx src/scripts/run-search.ts",
     "research": "tsx src/scripts/run-research.ts",
     "task-registry": "tsx src/scripts/run-task-registry.ts",
