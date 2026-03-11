@@ -33,7 +33,7 @@
 
 ### Production Crawler
 - **完成度：約 95%–98%**
-- 已實作：queue/worker abstraction、job status tracking、proxyUrl schema、anti-bot detection (ANTI_BOT_BLOCKED)、health endpoint、distributed crawling (worker/shard)、storage backend (SQLite + memory)
+- 已實作：queue/worker abstraction、job status tracking、proxy pool、advanced rate limiting、redis queue、anti-bot evasion、proxyUrl schema、anti-bot detection (ANTI_BOT_BLOCKED)、health endpoint、distributed crawling (worker/shard)、storage backend (SQLite + memory)
 
 ## Implemented vs Planned
 

@@ -5,12 +5,16 @@ export { discoverSitemap, filterSitemapUrls, buildSitemapUrls } from '../engines
 export { classifyOutcome, isShellDetectionReason, getRetryReasonLabels } from '../engines/retry/retryClassifier.js';
 export { getHostPolicy, getPreferredStrategy, getHostPolicyStats, clearHostPolicy } from '../engines/retry/hostPolicyMemory.js';
 export { acquireRateLimitToken, setRateLimitConfig, clearRateLimitConfig, getRateLimitStats, isRateLimited } from '../engines/ratelimit/rateLimiter.js';
+export { createAdvancedLimiter, getAdvancedLimiter, setAdvancedLimiter } from '../ratelimit/advanced.js';
 export { getMetrics, resetMetrics } from '../observability/metrics.js';
 export { route } from '../router/retrievalRouter.js';
 export { enqueueJob, getJob, listJobs, processJob } from '../queue/jobQueue.js';
+export { createRedisQueue, getRedisQueue, setRedisQueue } from '../queue/redisQueue.js';
 export { setWorker, getWorker, shardUrl, shouldProcessUrl, partitionUrls } from '../queue/distributed.js';
 export { setStorageConfig, getStorageConfig, saveCrawlJob, loadCrawlJob, saveMonitorSnapshot, loadMonitorSnapshots } from '../storage/backend.js';
 export { healthCheck } from '../observability/health.js';
 export { fetchWithRouter } from '../fetch/fetchWithRouter.js';
 export { browserFetch } from '../fetch/browserFetcher.js';
 export { monitor } from '../monitor/monitor.js';
+export { createProxyPool, getProxyPool, setProxyPool } from '../proxy/pool.js';
+export { createEvasionManager, getEvasionManager, setEvasionManager } from '../anti-bot/evasion.js';

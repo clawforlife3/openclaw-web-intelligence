@@ -1,4 +1,5 @@
 import { ExtractError } from '../types/errors.js';
+import { getProxyPool, type Proxy } from '../proxy/pool.js';
 
 export interface StaticFetchRequest {
   url: string;
@@ -60,13 +61,39 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), request.timeoutMs);
 
+    let proxy: Proxy | null = null;
+    let usedProxyUrl: string | undefined = request.proxyUrl;
+    
+    // Use proxy pool if no explicit proxy specified
+    if (!usedProxyUrl) {
+      const pool = getProxyPool();
+      if (pool) {
+        proxy = pool.getProxy();
+        if (proxy) {
+          usedProxyUrl = proxy.url;
+        }
+      }
+    }
+
+    const fetchOptions: RequestInit = {
+      redirect: 'follow',
+      signal: ctrl.signal,
+      headers: buildRequestHeaders(request),
+    };
+
     try {
-      const res = await fetch(request.url, {
-        redirect: 'follow',
-        signal: ctrl.signal,
-        headers: buildRequestHeaders(request),
-      });
+      const startTime = Date.now();
+      const res = await fetch(request.url, fetchOptions);
+      const latency = Date.now() - startTime;
       clearTimeout(timer);
+
+      // Report proxy result if used
+      if (proxy) {
+        const pool = getProxyPool();
+        if (pool) {
+          pool.reportResult(proxy.id, res.ok, latency);
+        }
+      }
 
       const responseHeaders = Object.fromEntries(res.headers.entries());
       const validators = extractValidators(responseHeaders);

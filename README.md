@@ -51,6 +51,10 @@
 - **Proxy Support (schema)**：proxyUrl 參數預留
 - **Distributed Crawling**：worker/shard 抽象 + URL 分割
 - **Storage Backend**：SQLite + Memory 雙後端支援
+- **Proxy Pool**：proxy rotation + health check
+- **Advanced Rate Limiting**：per-domain + global + backoff
+- **Redis Queue**：多 worker 協調與持久化佇列
+- **Anti-bot Evasion**：UA rotation + pacing + block detection
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）
