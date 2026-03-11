@@ -1,5 +1,6 @@
 import { ExtractError } from '../types/errors.js';
 import { getResearchTask, getResearchTaskList, researchTopic, resumeResearchTask } from '../research/gateway.js';
+import { initializeBrowserRuntimeConfigFromEnv } from '../fetch/browserRuntime.js';
 
 function getArg(flag: string): string | undefined {
   const eqIdx = process.argv.findIndex((a) => a.startsWith(`--${flag}=`));
@@ -28,6 +29,7 @@ if (!topic && !taskId && !list) {
 }
 
 try {
+  initializeBrowserRuntimeConfigFromEnv();
   if (list) {
     console.log(JSON.stringify(getResearchTaskList(), null, 2));
     process.exit(0);

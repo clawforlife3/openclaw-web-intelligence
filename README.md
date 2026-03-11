@@ -818,6 +818,29 @@ npm run test
 
 ---
 
+## Browser Runtime
+
+高 JS 或需要登入的網站目前支援兩條 browser 路徑：
+
+- `launch`
+  - 由本地 Playwright 直接啟動 Chromium
+- `remote-cdp`
+  - attach 到外部 Chromium/Chrome
+  - 適合 WSL2 連 Windows 上已登入的 browser session
+
+Remote CDP 環境變數：
+
+```bash
+export OPENCLAW_BROWSER_REMOTE_CDP_URL=http://127.0.0.1:9222
+export OPENCLAW_BROWSER_ATTACH_ONLY=true
+export OPENCLAW_BROWSER_PROFILE_NAME=windows-default
+```
+
+設定後，`research`、`extract`、`crawl-worker` 都會使用相同 browser runtime 設定。
+詳細操作方式見 [BROWSER_OPS.md](./docs/BROWSER_OPS.md)。
+
+---
+
 ## 現在最值得繼續開發的方向
 
 ✅ Research Strengthening 與 Bridge Layer 已完成。

@@ -20,6 +20,7 @@ import { createAdvancedLimiter } from '../ratelimit/advanced.js';
 import { logError, logInfo, logWarn } from '../observability/logger.js';
 import { setQueueMetrics } from '../observability/metrics.js';
 import { generateTraceId } from '../types/utils.js';
+import { initializeBrowserRuntimeConfigFromEnv } from '../fetch/browserRuntime.js';
 
 interface WorkerOptions {
   redisUrl?: string;
@@ -50,6 +51,13 @@ async function main() {
     traceId: workerTraceId,
     workerId: options.workerId,
     options,
+  });
+
+  const browserRuntime = initializeBrowserRuntimeConfigFromEnv();
+  logInfo('worker.browser_runtime_ready', 'Browser runtime initialized', {
+    traceId: workerTraceId,
+    workerId: options.workerId,
+    browserRuntime,
   });
 
   // Initialize components

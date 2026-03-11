@@ -1,5 +1,6 @@
 import { ExtractError } from '../types/errors.js';
 import { extract } from '../engines/extract/httpExtractor.js';
+import { initializeBrowserRuntimeConfigFromEnv } from '../fetch/browserRuntime.js';
 
 function getArg(flag: string): string | undefined {
   const eqIdx = process.argv.findIndex((a) => a.startsWith(`--${flag}=`));
@@ -26,6 +27,7 @@ if (!urlArg) {
 }
 
 try {
+  initializeBrowserRuntimeConfigFromEnv();
   const result = await extract({
     urls: [urlArg],
     allowDomains: getArgList('allow-domains'),
