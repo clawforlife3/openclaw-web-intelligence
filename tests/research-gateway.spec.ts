@@ -57,7 +57,7 @@ vi.mock('../src/engines/extract/httpExtractor.js', () => ({
   })),
 }));
 
-const { researchTopic } = await import('../src/research/gateway.js');
+const { getResearchTask, getResearchTaskList, researchTopic, resumeResearchTask } = await import('../src/research/gateway.js');
 const { loadResearchTask } = await import('../src/research/store.js');
 
 describe('researchTopic', () => {
@@ -91,5 +91,14 @@ describe('researchTopic', () => {
     const task = loadResearchTask(result.data.taskId);
     expect(task?.status).toBe('completed');
     expect(task?.checkpoint?.documentCount).toBe(2);
+
+    const viaGetter = getResearchTask(result.data.taskId);
+    expect(viaGetter?.taskId).toBe(result.data.taskId);
+
+    const resumed = await resumeResearchTask(result.data.taskId);
+    expect(resumed?.data.taskId).toBe(result.data.taskId);
+
+    const listed = getResearchTaskList();
+    expect(listed.some((item) => item.taskId === result.data.taskId)).toBe(true);
   });
 });

@@ -28,3 +28,4 @@ export { collectCorpus } from '../research/collector.js';
 export { loadResearchTask, listResearchTasks, saveResearchTask, updateResearchTask } from '../research/store.js';
 export { crawlDomain } from '../research/domain.js';
 export { monitorTopic } from '../research/monitoring.js';
+export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../research/gateway.js';

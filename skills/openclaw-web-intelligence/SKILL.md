@@ -10,6 +10,7 @@ description: Use this skill when you need high-quality web intelligence for rese
 This skill wraps the `openclaw-web-intelligence` project as a reusable capability for OpenClaw agents.
 
 Use it when you need to:
+- turn a natural-language topic into a research task
 - search the web for candidate sources
 - extract a single page into agent-friendly content
 - map a documentation or website structure
@@ -27,25 +28,36 @@ Do **not** use it as your first choice for:
 
 ## Core mental model
 
-Choose the smallest operation that answers the question:
+Choose the highest-level operation that answers the question:
 
-1. **search**
+1. **research_topic**
+   - Use when the user gives a topic, not URLs.
+   - Best for market scans, competitor research, trend snapshots, and initial evidence collection.
+
+2. **crawl_domain**
+   - Use when the user wants one domain mapped and categorized.
+   - Best for docs/product/blog sites where you want recommended extraction targets.
+
+3. **monitor_topic**
+   - Use when the user wants recurring monitoring across domains or a theme.
+
+4. **search**
    - Use when you need candidate URLs.
    - Good for topic discovery and source finding.
 
-2. **extract**
+5. **extract**
    - Use when you already know the URL and want the content.
    - Best for one page, docs page, article, changelog, release notes, blog post.
 
-3. **map**
+6. **map**
    - Use when you need to understand a site structure before crawling.
    - Best for docs sites, help centers, knowledge bases.
 
-4. **crawl**
+7. **crawl**
    - Use when you need multiple pages from one site.
    - Best for building a research corpus from a constrained scope.
 
-5. **monitor**
+8. **monitor**
    - Use when you need a baseline snapshot and later diff checks.
    - Good for changelogs, docs sections, pricing pages, status pages.
 
@@ -61,6 +73,15 @@ cd ~/projects/openclaw-web-intelligence
 
 # Search - 搜尋候選 URL
 npm run search -- --query "React server components"
+
+# Research Topic - 輸入 topic 直接建立研究任務
+npm run research -- --topic "台灣 CRM 市場" --goal=compare --region=台灣 --time-range=近三年
+
+# Crawl Domain - domain 級探索
+npm run crawl-domain -- --domain react.dev --goal="analyze docs"
+
+# Monitor Topic - topic 級監控
+npm run monitor-topic -- --topic "品牌負評" --watch-domains=forum.example.com,news.example.com
 
 # Extract - 擷取單一頁面
 npm run extract -- --url https://react.dev --include-structured=true
@@ -81,7 +102,7 @@ npm run dashboard
 ### Method 2: Import as Module (在 code 中使用)
 
 ```typescript
-import { search, extract, crawl, map, monitor, ClusterCoordinator } from './src/api/index.js';
+import { researchTopic, crawlDomain, monitorTopic, search, extract, crawl, map, monitor, ClusterCoordinator } from './src/api/index.js';
 
 // Search
 const searchResult = await search({ query: "TypeScript best practices" });

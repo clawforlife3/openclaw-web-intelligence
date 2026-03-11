@@ -21,7 +21,7 @@ import {
   buildResearchFindings,
   buildResearchSummary,
 } from './reporter.js';
-import { saveResearchTask, updateResearchTask } from './store.js';
+import { listResearchTasks, loadResearchTask, saveResearchTask, updateResearchTask } from './store.js';
 
 function dedupeSources(items: ResearchSource[]): ResearchSource[] {
   const seen = new Set<string>();
@@ -174,4 +174,50 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
   };
 
   return ResearchTopicResponseSchema.parse(response);
+}
+
+export function getResearchTask(taskId: string) {
+  return loadResearchTask(taskId);
+}
+
+export function getResearchTaskList() {
+  return listResearchTasks();
+}
+
+export async function resumeResearchTask(taskId: string): Promise<ResearchTopicResponse | null> {
+  const task = loadResearchTask(taskId);
+  if (!task) return null;
+
+  if (task.status === 'completed' && task.plan && task.sources && task.documents && task.summary) {
+    return ResearchTopicResponseSchema.parse({
+      success: true,
+      data: {
+        taskId: task.taskId,
+        status: 'completed',
+        topic: task.request.topic,
+        goal: task.request.goal,
+        plan: task.plan,
+        sources: task.sources,
+        documents: task.documents,
+        summary: task.summary,
+        findings: buildResearchFindings(task.request, task.sources, task.documents),
+        evidence: buildResearchEvidence(task.sources),
+        confidenceNotes: buildConfidenceNotes(task.sources, task.documents),
+        stats: {
+          queryCount: task.plan.queries.length,
+          sourceCount: task.sources.length,
+          documentCount: task.documents.length,
+          uniqueDomainCount: countUniqueDomains(task.sources),
+          evidenceCount: Math.min(task.sources.length, 5),
+        },
+      },
+      meta: {
+        requestId: generateRequestId(),
+        traceId: generateTraceId(),
+        schemaVersion: 'v1',
+      },
+    });
+  }
+
+  return researchTopic(task.request);
 }

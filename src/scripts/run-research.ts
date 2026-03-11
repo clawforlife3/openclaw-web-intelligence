@@ -1,5 +1,5 @@
 import { ExtractError } from '../types/errors.js';
-import { researchTopic } from '../research/gateway.js';
+import { getResearchTask, getResearchTaskList, researchTopic, resumeResearchTask } from '../research/gateway.js';
 
 function getArg(flag: string): string | undefined {
   const eqIdx = process.argv.findIndex((a) => a.startsWith(`--${flag}=`));
@@ -18,15 +18,29 @@ function getArgList(flag: string): string[] {
 }
 
 const topic = getArg('topic');
+const taskId = getArg('task-id');
+const resume = getArg('resume') === 'true';
+const list = getArg('list') === 'true';
 
-if (!topic) {
-  console.error('Usage: npm run research -- --topic "台灣 CRM 市場" [--goal=summary|compare|track|monitor|explore_domain] [--region=台灣] [--time-range=近三年]');
+if (!topic && !taskId && !list) {
+  console.error('Usage: npm run research -- --topic "台灣 CRM 市場" [--goal=summary|compare|track|monitor|explore_domain] [--region=台灣] [--time-range=近三年] [--task-id=...] [--resume=true] [--list=true]');
   process.exit(1);
 }
 
 try {
+  if (list) {
+    console.log(JSON.stringify(getResearchTaskList(), null, 2));
+    process.exit(0);
+  }
+
+  if (taskId && !topic) {
+    const result = resume ? await resumeResearchTask(taskId) : getResearchTask(taskId);
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result ? 0 : 4);
+  }
+
   const result = await researchTopic({
-    topic,
+    topic: topic!,
     goal: (getArg('goal') as 'summary' | 'compare' | 'track' | 'monitor' | 'explore_domain' | undefined) ?? 'summary',
     region: getArg('region'),
     timeRange: getArg('time-range'),

@@ -1,6 +1,6 @@
-# OpenClaw Web Intelligence Gateway
+# OpenClaw Autonomous Web Research Skill
 
-> 為 OpenClaw Agent 設計的網頁情報取得工具：搜尋、抽取、網站地圖、爬取、browser fallback、structured extraction、monitor/diff。
+> 為 OpenClaw Agent 設計的 autonomous web research skill：topic planning、discovery、fetch/extract、domain crawl、topic monitoring、evidence-backed reporting。
 
 - GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
 - Current status: **MVP 2.0 first-usable，正進入 production hardening**
@@ -14,20 +14,31 @@
 
 ## Executive Summary
 
-`openclaw-web-intelligence` 的定位不是通用大型爬蟲平台，而是 **給 Agent 用的網頁資料獲取層**。
+`openclaw-web-intelligence` 的定位不是通用大型爬蟲平台，而是 **給 OpenClaw 用的 autonomous web research infrastructure**。
 
 它解決的核心問題是：
-1. Agent 需要搜尋和抓內容
-2. 不同網站需要不同抓取策略（static / browser）
-3. 抓回來的資料要能直接進入後續 reasoning，而不是只有一坨 HTML
-4. 同一頁反覆抓取需要快取與 revalidation，避免浪費
-5. 後續還要支援變更監控（monitor / diff）
+1. 使用者給的是 topic，不是 URL
+2. 系統要自己決定 query、source strategy、crawl depth、budget
+3. 抓回來的資料要變成 research corpus，而不是 raw HTML
+4. 最後要輸出 evidence-backed report，而不是一堆頁面
+5. 長時間任務要有 queue、checkpoint、resume、monitoring
 
-所以這個專案採用的是 **search + extract + map + crawl + cache + monitor** 的分層設計，並把「資料品質」放在第一位。
+所以這個專案現在的主軸是：
+
+```text
+topic -> planner -> discovery -> retrieval/extraction -> corpus -> report
+```
+
+低階的 `search / extract / map / crawl / monitor` 仍保留，但主要產品入口已開始轉向 task-level research tools。
 
 ---
 
 ## 這個專案能做什麼
+
+### 新的 task-level 入口
+- **Research Topic**：輸入 topic，自動產生 query、收集 sources、抽取 documents、生成初步 findings/evidence
+- **Crawl Domain**：輸入 domain，回傳 categorized URLs 與 recommended extraction targets
+- **Monitor Topic**：輸入 topic + watch domains，建立主題級監控輸出
 
 ### 已完成能力
 - **Search**：用 DDGS 做網頁搜尋
@@ -89,12 +100,14 @@
 
 ```text
 Agent / CLI
+  -> research | crawl-domain | monitor-topic
   -> search | extract | map | crawl | monitor
   -> fetch router
        -> static fetch ----\
        -> browser fetch ----> extract pipeline -> cache -> observability
-  -> queue / worker / redis
+  -> queue / worker / redis / task store
   -> proxy pool / rate limiter / anti-bot / session store
+  -> corpus scoring / report
   -> metrics / dashboard / health
 ```
 
