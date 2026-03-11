@@ -27,6 +27,6 @@ export { buildResearchCorpus } from '../research/corpus.js';
 export { collectCorpus } from '../research/collector.js';
 export { loadResearchTask, listResearchTasks, saveResearchTask, updateResearchTask } from '../research/store.js';
 export { crawlDomain } from '../research/domain.js';
-export { monitorTopic } from '../research/monitoring.js';
+export { getMonitorTopicTask, getMonitorTopicTaskList, monitorTopic, rerunMonitorTopicTask } from '../research/monitoring.js';
 export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../research/gateway.js';
 export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from '../research/analysis.js';

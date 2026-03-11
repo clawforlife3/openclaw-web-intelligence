@@ -537,6 +537,7 @@ export const MonitorTopicResponseSchema = z.object({
   data: z.object({
     taskId: z.string(),
     status: z.enum(['created', 'checked']),
+    runCount: z.number().int().min(1),
     topic: z.string(),
     watchList: z.array(z.string()),
     newFindings: z.array(z.string()),
