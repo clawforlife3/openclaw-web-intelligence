@@ -10,6 +10,7 @@ import { generateRequestId, generateTraceId } from '../types/utils.js';
 import { buildResearchPlan } from './planner.js';
 import { getNextMonitoringRunAt } from './monitoringScheduler.js';
 import { researchTopic } from './gateway.js';
+import { buildMonitoringTrend } from './monitoringAnalysis.js';
 import {
   loadMonitorTopicTask,
   listMonitorTopicTasks,
@@ -122,6 +123,7 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     : `Monitoring baseline created for topic "${task.request.topic}".`;
   const runCount = task.runCount + 1;
   const lastRunAt = new Date().toISOString();
+  const previousRun = task.runHistory.at(-1);
   const shouldRefreshResearch = task.runCount === 0 || changedPages.length > 0 || !task.latestResearchTaskId;
   const researchUpdate = shouldRefreshResearch
     ? await refreshTopicResearch({
@@ -129,6 +131,29 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
       watchList: targets,
     })
     : null;
+  const trend = buildMonitoringTrend({
+    previousRun,
+    changedPages,
+    alerts,
+    topic: task.request.topic,
+  });
+  const relatedResearchTaskId = researchUpdate?.taskId ?? task.latestResearchTaskId;
+  const reportSummary = researchUpdate?.summary ?? task.reportSummary;
+  const reportInsights = researchUpdate?.insights ?? task.reportInsights;
+  const nextRun = {
+    runCount,
+    status,
+    changedPages,
+    alerts,
+    relatedResearchTaskId,
+    reportSummary,
+    reportInsights,
+    trendSummary: trend.trendSummary,
+    newSignals: trend.newSignals,
+    persistentSignals: trend.persistentSignals,
+    droppedSignals: trend.droppedSignals,
+    runAt: lastRunAt,
+  };
 
   saveMonitorTopicTask({
     ...task,
@@ -143,9 +168,14 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     researchTaskIds: researchUpdate
       ? [...task.researchTaskIds, researchUpdate.taskId]
       : task.researchTaskIds,
-    latestResearchTaskId: researchUpdate?.taskId ?? task.latestResearchTaskId,
-    reportSummary: researchUpdate?.summary ?? task.reportSummary,
-    reportInsights: researchUpdate?.insights ?? task.reportInsights,
+    latestResearchTaskId: relatedResearchTaskId,
+    reportSummary,
+    reportInsights,
+    trendSummary: trend.trendSummary,
+    newSignals: trend.newSignals,
+    persistentSignals: trend.persistentSignals,
+    droppedSignals: trend.droppedSignals,
+    runHistory: [...task.runHistory, nextRun].slice(-10),
     lastRunAt,
     nextRunAt: getNextMonitoringRunAt(task.request.schedule, new Date(lastRunAt)),
     updatedAt: lastRunAt,
@@ -163,9 +193,13 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
       changedPages,
       alerts,
       updatedSummary,
-      relatedResearchTaskId: researchUpdate?.taskId ?? task.latestResearchTaskId,
-      reportSummary: researchUpdate?.summary ?? task.reportSummary,
-      reportInsights: researchUpdate?.insights ?? task.reportInsights,
+      relatedResearchTaskId,
+      reportSummary,
+      reportInsights,
+      trendSummary: trend.trendSummary,
+      newSignals: trend.newSignals,
+      persistentSignals: trend.persistentSignals,
+      droppedSignals: trend.droppedSignals,
     },
     meta: {
       requestId,
@@ -191,6 +225,7 @@ export async function monitorTopic(input: MonitorTopicRequest): Promise<MonitorT
     updatedSummary: `Monitoring baseline created for topic "${request.topic}".`,
     runCount: 0,
     researchTaskIds: [],
+    runHistory: [],
     createdAt: now,
     updatedAt: now,
   };

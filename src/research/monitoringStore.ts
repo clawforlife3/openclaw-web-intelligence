@@ -1,6 +1,21 @@
 import { getCache } from '../storage/cache.js';
 import type { MonitorTopicRequest } from '../types/schemas.js';
 
+export interface StoredMonitorTopicRun {
+  runCount: number;
+  status: 'created' | 'checked';
+  changedPages: string[];
+  alerts: string[];
+  relatedResearchTaskId?: string;
+  reportSummary?: string;
+  reportInsights?: string[];
+  trendSummary?: string;
+  newSignals?: string[];
+  persistentSignals?: string[];
+  droppedSignals?: string[];
+  runAt: string;
+}
+
 export interface StoredMonitorTopicTask {
   taskId: string;
   request: MonitorTopicRequest;
@@ -16,6 +31,11 @@ export interface StoredMonitorTopicTask {
   latestResearchTaskId?: string;
   reportSummary?: string;
   reportInsights?: string[];
+  trendSummary?: string;
+  newSignals?: string[];
+  persistentSignals?: string[];
+  droppedSignals?: string[];
+  runHistory: StoredMonitorTopicRun[];
   lastRunAt?: string;
   nextRunAt?: string;
   createdAt: string;

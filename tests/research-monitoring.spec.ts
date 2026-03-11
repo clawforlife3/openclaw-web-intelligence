@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const monitorMock = vi.fn();
+
 vi.mock('../src/research/gateway.js', () => ({
   researchTopic: vi.fn(async ({ topic }: { topic: string }) => ({
     success: true,
@@ -42,7 +44,13 @@ vi.mock('../src/engines/search/search.js', () => ({
 }));
 
 vi.mock('../src/monitor/monitor.js', () => ({
-  monitor: vi.fn(async ({ target }: { target: string }) => ({
+  monitor: monitorMock,
+}));
+
+const { getMonitorTopicTask, getMonitorTopicTaskList, monitorTopic, rerunMonitorTopicTask } = await import('../src/research/monitoring.js');
+
+describe('monitorTopic', () => {
+  monitorMock.mockImplementation(async ({ target }: { target: string }) => ({
     success: true,
     data: {
       monitorJobId: 'mon_1',
@@ -56,12 +64,8 @@ vi.mock('../src/monitor/monitor.js', () => ({
       snapshot: {},
     },
     meta: {},
-  })),
-}));
+  }));
 
-const { getMonitorTopicTask, getMonitorTopicTaskList, monitorTopic, rerunMonitorTopicTask } = await import('../src/research/monitoring.js');
-
-describe('monitorTopic', () => {
   it('aggregates topic monitoring results into task-level output', async () => {
     const result = await monitorTopic({
       topic: '品牌負評',
@@ -78,6 +82,8 @@ describe('monitorTopic', () => {
     expect(result.data.relatedResearchTaskId).toBe('research_for_品牌負評');
     expect(result.data.reportSummary).toContain('品牌負評');
     expect(result.data.reportInsights?.length).toBeGreaterThan(0);
+    expect(result.data.trendSummary).toContain('Initial monitoring baseline');
+    expect(result.data.persistentSignals).toHaveLength(0);
   });
 
   it('persists monitoring tasks and supports reruns', async () => {
@@ -95,12 +101,49 @@ describe('monitorTopic', () => {
     expect(stored?.watchList.some((url) => url.includes('forum.example.com'))).toBe(true);
     expect(stored?.latestResearchTaskId).toBe('research_for_AI SEO 工具');
     expect(stored?.researchTaskIds).toContain('research_for_AI SEO 工具');
+    expect(stored?.runHistory).toHaveLength(1);
+
+    monitorMock.mockImplementationOnce(async ({ target }: { target: string }) => ({
+      success: true,
+      data: {
+        monitorJobId: 'mon_2',
+        status: 'checked',
+        changed: target.includes('news'),
+        change: {
+          changed: target.includes('news'),
+          fields: target.includes('news') ? ['title'] : [],
+          summary: target.includes('news') ? ['Headline sentiment shifted.'] : ['No meaningful change detected.'],
+        },
+        snapshot: {},
+      },
+      meta: {},
+    }));
+    monitorMock.mockImplementationOnce(async ({ target }: { target: string }) => ({
+      success: true,
+      data: {
+        monitorJobId: 'mon_3',
+        status: 'checked',
+        changed: false,
+        change: {
+          changed: false,
+          fields: [],
+          summary: ['No meaningful change detected.'],
+        },
+        snapshot: {},
+      },
+      meta: {},
+    }));
 
     const rerun = await rerunMonitorTopicTask(created.data.taskId);
     expect(rerun?.data.runCount).toBe(2);
     expect(rerun?.data.relatedResearchTaskId).toBe('research_for_AI SEO 工具');
+    expect(rerun?.data.newSignals).toContain('https://news.example.com/post');
+    expect(rerun?.data.droppedSignals).toContain('https://forum.example.com/thread');
+    expect(rerun?.data.trendSummary).toContain('new signals');
 
     const tasks = getMonitorTopicTaskList();
     expect(tasks.some((task) => task.taskId === created.data.taskId)).toBe(true);
+    const updated = getMonitorTopicTask(created.data.taskId);
+    expect(updated?.runHistory).toHaveLength(2);
   });
 });
