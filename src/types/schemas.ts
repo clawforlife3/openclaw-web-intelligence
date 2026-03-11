@@ -418,6 +418,27 @@ export const ResearchDocumentSchema = z.object({
   sourceQuery: z.string(),
   relevanceScore: z.number().min(0).max(1).optional(),
   evidenceScore: z.number().min(0).max(1).optional(),
+  clusterId: z.string().optional(),
+});
+
+export const ResearchComparisonRowSchema = z.object({
+  label: z.string(),
+  values: z.record(z.string()),
+});
+
+export const ResearchClusterSchema = z.object({
+  clusterId: z.string(),
+  label: z.string(),
+  documentUrls: z.array(z.string().url()),
+  domains: z.array(z.string()),
+});
+
+export const ResearchReportSchema = z.object({
+  executiveSummary: z.string(),
+  keyInsights: z.array(z.string()),
+  comparisons: z.array(ResearchComparisonRowSchema),
+  clusters: z.array(ResearchClusterSchema),
+  citations: z.array(ResearchEvidenceSchema),
 });
 
 export const ResearchTaskStatusSchema = z.enum([
@@ -456,12 +477,15 @@ export const ResearchTopicResponseSchema = z.object({
     findings: z.array(ResearchFindingSchema),
     evidence: z.array(ResearchEvidenceSchema),
     confidenceNotes: z.array(z.string()),
+    report: ResearchReportSchema,
     stats: z.object({
       queryCount: z.number().int(),
       sourceCount: z.number().int(),
       documentCount: z.number().int(),
       uniqueDomainCount: z.number().int(),
       evidenceCount: z.number().int(),
+      clusterCount: z.number().int(),
+      duplicateRatio: z.number().min(0).max(1),
     }),
   }),
   meta: CommonMetaSchema.optional(),
@@ -562,6 +586,9 @@ export type ResearchDocument = z.infer<typeof ResearchDocumentSchema>;
 export type ResearchTaskStatus = z.infer<typeof ResearchTaskStatusSchema>;
 export type ResearchTaskCheckpoint = z.infer<typeof ResearchTaskCheckpointSchema>;
 export type ResearchTopicResponse = z.infer<typeof ResearchTopicResponseSchema>;
+export type ResearchComparisonRow = z.infer<typeof ResearchComparisonRowSchema>;
+export type ResearchCluster = z.infer<typeof ResearchClusterSchema>;
+export type ResearchReport = z.infer<typeof ResearchReportSchema>;
 export type CrawlDomainRequest = z.infer<typeof CrawlDomainRequestSchema>;
 export type CrawlDomainResponse = z.infer<typeof CrawlDomainResponseSchema>;
 export type MonitorTopicRequest = z.infer<typeof MonitorTopicRequestSchema>;

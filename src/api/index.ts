@@ -29,3 +29,4 @@ export { loadResearchTask, listResearchTasks, saveResearchTask, updateResearchTa
 export { crawlDomain } from '../research/domain.js';
 export { monitorTopic } from '../research/monitoring.js';
 export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../research/gateway.js';
+export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from '../research/analysis.js';

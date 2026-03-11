@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildResearchCorpus } from '../src/research/corpus.js';
+import { buildResearchCorpus, dedupeResearchDocuments } from '../src/research/corpus.js';
 
 describe('buildResearchCorpus', () => {
   it('scores sources with relevance, quality, and diversity', () => {
@@ -34,5 +34,39 @@ describe('buildResearchCorpus', () => {
     expect(result.rankedSources).toHaveLength(2);
     expect(result.rankedSources[0]?.evidenceScore).toBeGreaterThan(0);
     expect(result.rankedSources[0]?.relevanceScore).toBeGreaterThan(0);
+  });
+
+  it('dedupes near-identical documents', () => {
+    const result = dedupeResearchDocuments([
+      {
+        url: 'https://example.com/a',
+        finalUrl: 'https://example.com/a',
+        domain: 'example.com',
+        title: 'A',
+        text: 'same text body',
+        markdown: 'same text body',
+        snippet: 'same',
+        qualityScore: 0.7,
+        confidence: 0.7,
+        extractedAt: '2026-03-11T00:00:00.000Z',
+        sourceQuery: 'a',
+      },
+      {
+        url: 'https://example.com/b',
+        finalUrl: 'https://example.com/b',
+        domain: 'example.com',
+        title: 'A',
+        text: 'same text body',
+        markdown: 'same text body',
+        snippet: 'same',
+        qualityScore: 0.7,
+        confidence: 0.7,
+        extractedAt: '2026-03-11T00:00:00.000Z',
+        sourceQuery: 'a',
+      },
+    ]);
+
+    expect(result.documents).toHaveLength(1);
+    expect(result.duplicateRatio).toBeGreaterThan(0);
   });
 });

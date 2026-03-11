@@ -2,6 +2,7 @@ import { getCache } from '../storage/cache.js';
 import type {
   ResearchDocument,
   ResearchPlan,
+  ResearchReport,
   ResearchSource,
   ResearchTaskCheckpoint,
   ResearchTaskStatus,
@@ -17,6 +18,7 @@ export interface StoredResearchTask {
   documents?: ResearchDocument[];
   checkpoint?: ResearchTaskCheckpoint;
   summary?: string;
+  report?: ResearchReport;
   createdAt: string;
   updatedAt: string;
 }

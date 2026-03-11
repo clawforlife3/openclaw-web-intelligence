@@ -1,4 +1,4 @@
-import type { ResearchSource, ResearchTopicRequest } from '../types/schemas.js';
+import type { ResearchDocument, ResearchSource, ResearchTopicRequest } from '../types/schemas.js';
 
 function tokenize(text: string): string[] {
   return text
@@ -62,4 +62,26 @@ export function buildResearchCorpus(
 
   const duplicateRatio = sources.length === 0 ? 0 : Math.max(0, 1 - (ranked.length / sources.length));
   return { rankedSources: ranked, duplicateRatio };
+}
+
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+export function dedupeResearchDocuments(documents: ResearchDocument[]): { documents: ResearchDocument[]; duplicateRatio: number } {
+  const seen = new Set<string>();
+  const uniqueDocs: ResearchDocument[] = [];
+
+  for (const document of documents) {
+    const signature = `${document.domain}:${normalizeText(document.title || '')}:${normalizeText(document.text.slice(0, 300))}`;
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    uniqueDocs.push(document);
+  }
+
+  const duplicateRatio = documents.length === 0 ? 0 : Math.max(0, 1 - (uniqueDocs.length / documents.length));
+  return {
+    documents: uniqueDocs.sort((a, b) => (b.evidenceScore ?? 0) - (a.evidenceScore ?? 0)),
+    duplicateRatio,
+  };
 }

@@ -13,7 +13,8 @@ import {
 } from '../types/schemas.js';
 import { generateRequestId, generateTraceId } from '../types/utils.js';
 import { collectCorpus } from './collector.js';
-import { buildResearchCorpus } from './corpus.js';
+import { buildResearchCorpus, dedupeResearchDocuments } from './corpus.js';
+import { buildResearchReport } from './analysis.js';
 import { buildResearchPlan } from './planner.js';
 import {
   buildConfidenceNotes,
@@ -121,8 +122,15 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
       updatedAt: new Date().toISOString(),
     },
   });
-  const documents: ResearchDocument[] = await collectCorpus(request, sources);
+  const rawDocuments: ResearchDocument[] = await collectCorpus(request, sources);
+  const dedupedDocumentResult = dedupeResearchDocuments(rawDocuments);
   const evidence: ResearchEvidence[] = buildResearchEvidence(sources);
+  const analysis = buildResearchReport({
+    request,
+    documents: dedupedDocumentResult.documents,
+    evidence,
+  });
+  const documents = analysis.clusteredDocuments;
   const findings: ResearchFinding[] = buildResearchFindings(request, sources, documents);
   const summary = buildResearchSummary(request, sources, documents);
   const confidenceNotes = buildConfidenceNotes(sources, documents);
@@ -131,6 +139,7 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
     status: 'completed',
     documents,
     summary,
+    report: analysis.report,
     checkpoint: {
       stage: 'completed',
       completedUrls: documents.map((document) => document.url),
@@ -157,12 +166,15 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
       findings,
       evidence,
       confidenceNotes,
+      report: analysis.report,
       stats: {
         queryCount: plan.queries.length,
         sourceCount: sources.length,
         documentCount: documents.length,
         uniqueDomainCount: countUniqueDomains(sources),
         evidenceCount: evidence.length,
+        clusterCount: analysis.report.clusters.length,
+        duplicateRatio: dedupedDocumentResult.duplicateRatio,
       },
     },
     meta: {
@@ -189,6 +201,12 @@ export async function resumeResearchTask(taskId: string): Promise<ResearchTopicR
   if (!task) return null;
 
   if (task.status === 'completed' && task.plan && task.sources && task.documents && task.summary) {
+    const analysis = buildResearchReport({
+      request: task.request,
+      documents: task.documents,
+      evidence: buildResearchEvidence(task.sources),
+    });
+    const duplicateRatio = task.documents.length === 0 ? 0 : 0;
     return ResearchTopicResponseSchema.parse({
       success: true,
       data: {
@@ -203,12 +221,15 @@ export async function resumeResearchTask(taskId: string): Promise<ResearchTopicR
         findings: buildResearchFindings(task.request, task.sources, task.documents),
         evidence: buildResearchEvidence(task.sources),
         confidenceNotes: buildConfidenceNotes(task.sources, task.documents),
+        report: task.report ?? analysis.report,
         stats: {
           queryCount: task.plan.queries.length,
           sourceCount: task.sources.length,
           documentCount: task.documents.length,
           uniqueDomainCount: countUniqueDomains(task.sources),
           evidenceCount: Math.min(task.sources.length, 5),
+          clusterCount: (task.report ?? analysis.report).clusters.length,
+          duplicateRatio,
         },
       },
       meta: {

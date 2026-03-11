@@ -86,6 +86,8 @@ describe('researchTopic', () => {
     expect(result.data.summary).toContain('台灣 CRM 市場');
     expect(result.data.findings.length).toBeGreaterThan(0);
     expect(result.data.evidence.length).toBeGreaterThan(0);
+    expect(result.data.report.executiveSummary).toContain('台灣 CRM 市場');
+    expect(result.data.report.clusters.length).toBeGreaterThan(0);
     expect(result.data.sources[0]?.evidenceScore).toBeGreaterThanOrEqual(result.data.sources[1]?.evidenceScore ?? 0);
 
     const task = loadResearchTask(result.data.taskId);
