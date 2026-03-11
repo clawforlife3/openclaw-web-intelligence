@@ -62,14 +62,18 @@
 - 小中型站點內容蒐集
 - OpenClaw 研究型 agent 的 web intelligence backend
 - 後續變更監控的 baseline 能力
+- Production-scale crawling（需搭配 Redis + Proxy Pool）
 
-### 目前還不適合的用途
-- 大規模 production crawling
-- 高頻跨網域分散式抓取
-- 重度 anti-bot 對抗
-- 需要完整 proxy pool / queue / distributed worker 的場景
+### 已實現的 Production 功能
+- ✅ Proxy Pool（輪換 + 健康檢查）
+- ✅ Anti-bot Evasion（UA rotation + request pacing + block detection）
+- ✅ Advanced Rate Limiting（per-domain + global + backoff）
+- ✅ Redis Queue（多 Worker 協調）
+- ✅ Distributed Crawling（worker/shard 抽象）
 
-> 這些不是「永遠不做」，而是屬於 production capability track。建議先完成 research strengthening，再進入 bridge / production 階段。詳見 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
+### 尚不適合的場景
+- 超過 1000+ 節點的分散式爬蟲（需要更進階的調度系統）
+- 需要 CAPTCHA 解题的網站（需要第三方服務整合）
 
 ---
 
