@@ -16,6 +16,7 @@ export interface ProxyPoolConfig {
   healthCheckInterval?: number;
   minHealthThreshold?: number;
   strategy?: 'random' | 'round-robin' | 'least-used';
+  healthCheckUrl?: string;
 }
 
 const DEFAULT_CONFIG: Required<ProxyPoolConfig> = {
@@ -23,10 +24,10 @@ const DEFAULT_CONFIG: Required<ProxyPoolConfig> = {
   healthCheckInterval: 60000,
   minHealthThreshold: 0.3,
   strategy: 'round-robin',
+  healthCheckUrl: 'https://httpbin.org/ip',
 };
 
 let pool: ProxyPool | null = null;
-let config: Required<ProxyPoolConfig> = DEFAULT_CONFIG;
 
 function generateProxyId(): string {
   return `proxy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -36,12 +37,13 @@ export class ProxyPool {
   private proxies: Map<string, Proxy> = new Map();
   private roundRobinIndex = 0;
   private healthCheckTimer: NodeJS.Timeout | null = null;
+  private config: Required<ProxyPoolConfig>;
 
   constructor(userConfig: ProxyPoolConfig = {}) {
-    config = { ...DEFAULT_CONFIG, ...userConfig };
-    
-    if (config.proxies) {
-      for (const url of config.proxies) {
+    this.config = { ...DEFAULT_CONFIG, ...userConfig };
+
+    if (this.config.proxies) {
+      for (const url of this.config.proxies) {
         this.addProxy(url);
       }
     }
@@ -71,16 +73,17 @@ export class ProxyPool {
     const healthy = Array.from(this.proxies.values()).filter(p => p.isHealthy);
     if (healthy.length === 0) return null;
 
-    switch (config.strategy) {
+    switch (this.config.strategy) {
       case 'random':
         return healthy[Math.floor(Math.random() * healthy.length)];
       case 'least-used':
         return healthy.sort((a, b) => a.successCount - b.successCount)[0];
       case 'round-robin':
-      default:
+      default: {
         const proxy = healthy[this.roundRobinIndex % healthy.length];
         this.roundRobinIndex++;
         return proxy;
+      }
     }
   }
 
@@ -97,7 +100,7 @@ export class ProxyPool {
 
     const total = proxy.successCount + proxy.failCount;
     proxy.health = total > 10 ? proxy.successCount / total : proxy.health;
-    proxy.isHealthy = proxy.health >= config.minHealthThreshold;
+    proxy.isHealthy = proxy.health >= this.config.minHealthThreshold;
     proxy.lastChecked = new Date();
   }
 
@@ -110,7 +113,7 @@ export class ProxyPool {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
 
-        const response = await fetch('https://httpbin.org/ip', {
+        const response = await fetch(this.config.healthCheckUrl, {
           // @ts-expect-error - dispatcher is undici-specific
           dispatcher: new ProxyAgent(proxy.url),
           signal: controller.signal,
@@ -132,8 +135,8 @@ export class ProxyPool {
   startHealthCheck(): void {
     if (this.healthCheckTimer) return;
     this.healthCheckTimer = setInterval(
-      () => this.healthCheck(),
-      config.healthCheckInterval
+      () => void this.healthCheck(),
+      this.config.healthCheckInterval
     );
   }
 

@@ -55,26 +55,26 @@ export class RedisQueue {
   }
 
   async dequeue(): Promise<CrawlJob | null> {
-    // Use BRPOPLPUSH to atomically move job from source to processing queue
-    const jobJson = await this.redis.brpoplpush(
-      `queue:${this.config.queueName}`,
-      `processing:${this.config.queueName}:${this.config.workerId}`,
-      5 // 5 second timeout
-    );
+    const sourceQueue = `queue:${this.config.queueName}`;
+    const processingQueue = `processing:${this.config.queueName}:${this.config.workerId}`;
 
-    if (!jobJson) return null;
+    // Pop raw job payload from source queue
+    const raw = await this.redis.brpop(sourceQueue, 5);
+    if (!raw) return null;
 
+    const [, jobJson] = raw;
     const job: CrawlJob = JSON.parse(jobJson);
     job.status = 'processing';
     job.workerId = this.config.workerId;
     job.startedAt = new Date().toISOString();
 
-    // Store job details
+    // Store normalized job details and track only jobId in processing queue
     await this.redis.setex(
       `job:${job.jobId}`,
       this.config.jobTtlSeconds,
       JSON.stringify(job)
     );
+    await this.redis.lpush(processingQueue, job.jobId);
 
     return job;
   }

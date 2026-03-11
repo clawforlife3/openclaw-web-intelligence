@@ -1,3 +1,4 @@
+import { ProxyAgent } from 'undici';
 import { ExtractError } from '../types/errors.js';
 import { getProxyPool, type Proxy } from '../proxy/pool.js';
 import { getEvasionManager } from '../anti-bot/evasion.js';
@@ -92,6 +93,8 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       redirect: 'follow',
       signal: ctrl.signal,
       headers: { ...buildRequestHeaders(request), ...evasionHeaders },
+      // @ts-expect-error - dispatcher is undici-specific
+      dispatcher: usedProxyUrl ? new ProxyAgent(usedProxyUrl) : undefined,
     };
 
     try {
@@ -175,6 +178,12 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       };
     } catch (err) {
       clearTimeout(timer);
+      if (proxy) {
+        const pool = getProxyPool();
+        if (pool) {
+          pool.reportResult(proxy.id, false, request.timeoutMs);
+        }
+      }
       lastErr = err;
       if (attempt < request.retryMax) {
         await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));

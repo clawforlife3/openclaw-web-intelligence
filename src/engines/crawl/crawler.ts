@@ -94,16 +94,17 @@ async function fetchPage(url: string, cache: PageCache) {
 
   // Acquire rate limit token before fetching
   let releaseAdvanced: (() => void) | null = null;
-  
-  // Try advanced rate limiter first, fall back to basic
+  let releaseBasic: (() => void) | null = null;
+
+  // Prefer advanced rate limiter; fall back to basic only when advanced is absent.
   const advancedLimiter = getAdvancedLimiter();
   if (advancedLimiter) {
     const domain = new URL(url).hostname;
     await advancedLimiter.acquire(domain);
     releaseAdvanced = () => advancedLimiter.release(domain);
+  } else {
+    releaseBasic = await acquireRateLimitToken(url);
   }
-  
-  const releaseRateLimit = await acquireRateLimitToken(url);
 
   try {
     // Get host policy before making fetch decision
@@ -189,7 +190,9 @@ async function fetchPage(url: string, cache: PageCache) {
     if (releaseAdvanced) {
       releaseAdvanced();
     }
-    releaseRateLimit();
+    if (releaseBasic) {
+      releaseBasic();
+    }
   }
 }
 

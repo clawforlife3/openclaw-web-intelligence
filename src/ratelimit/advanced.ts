@@ -128,16 +128,6 @@ class AdvancedRateLimiter {
     while (bucket.tokens < 1 || this.globalBucket.tokens < 1 || this.globalConcurrency >= this.config.global.maxConcurrent) {
       await new Promise((resolve) => {
         this.waitQueue.push({ resolve, domain, addedAt: Date.now() });
-        setTimeout(resolve, 50);
-      });
-      
-      // Clean up stale queue entries
-      this.waitQueue = this.waitQueue.filter((entry) => {
-        if (entry.domain === domain && entry.addedAt < Date.now() - 5000) {
-          entry.resolve();
-          return false;
-        }
-        return true;
       });
 
       this.refill(domain);
@@ -168,10 +158,10 @@ class AdvancedRateLimiter {
     const now = Date.now();
     this.waitQueue = this.waitQueue.filter((entry) => {
       const bucket = this.buckets.get(entry.domain);
+      this.refill(entry.domain);
+      this.refillGlobal();
+
       if (bucket && bucket.tokens >= 1 && this.globalBucket.tokens >= 1 && this.globalConcurrency < this.config.global.maxConcurrent) {
-        bucket.tokens -= 1;
-        this.globalBucket.tokens -= 1;
-        this.globalConcurrency += 1;
         entry.resolve();
         return false;
       }
