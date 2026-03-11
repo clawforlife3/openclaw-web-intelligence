@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Web Intelligence"
+  short_description: "Run topic research, domain analysis, and recurring monitoring."
+  default_prompt: "Use this skill as a task-level research backend. Prefer research_topic for natural-language topics, crawl_domain for one-site analysis, and monitor_topic for recurring tracking. Use browser-runtime and remote CDP when high-JS or logged-in targets require an attached desktop browser session."
