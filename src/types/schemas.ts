@@ -435,7 +435,10 @@ export const ResearchClusterSchema = z.object({
 
 export const ResearchReportSchema = z.object({
   executiveSummary: z.string(),
+  coverageSummary: z.string(),
   keyInsights: z.array(z.string()),
+  trendSignals: z.array(z.string()),
+  uncertainties: z.array(z.string()),
   comparisons: z.array(ResearchComparisonRowSchema),
   clusters: z.array(ResearchClusterSchema),
   citations: z.array(ResearchEvidenceSchema),
@@ -486,6 +489,7 @@ export const ResearchTopicResponseSchema = z.object({
       evidenceCount: z.number().int(),
       clusterCount: z.number().int(),
       duplicateRatio: z.number().min(0).max(1),
+      filteredDocumentCount: z.number().int(),
     }),
   }),
   meta: CommonMetaSchema.optional(),

@@ -55,6 +55,8 @@ describe('buildResearchReport', () => {
 
     expect(result.report.clusters.length).toBeGreaterThan(0);
     expect(result.report.comparisons.length).toBeGreaterThan(0);
+    expect(result.report.coverageSummary).toContain('documents');
+    expect(result.report.trendSignals.length).toBeGreaterThan(0);
     expect(result.clusteredDocuments[0]?.clusterId).toBeTruthy();
   });
 });

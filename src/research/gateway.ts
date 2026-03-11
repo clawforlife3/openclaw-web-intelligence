@@ -1,4 +1,3 @@
-import { search } from '../engines/search/search.js';
 import { logInfo } from '../observability/logger.js';
 import { incrementMetric } from '../observability/metrics.js';
 import {
@@ -15,6 +14,7 @@ import { generateRequestId, generateTraceId } from '../types/utils.js';
 import { collectCorpus } from './collector.js';
 import { buildResearchCorpus, dedupeResearchDocuments } from './corpus.js';
 import { buildResearchReport } from './analysis.js';
+import { discoverResearchSources } from './discovery.js';
 import { buildResearchPlan } from './planner.js';
 import {
   buildConfidenceNotes,
@@ -23,18 +23,6 @@ import {
   buildResearchSummary,
 } from './reporter.js';
 import { listResearchTasks, loadResearchTask, saveResearchTask, updateResearchTask } from './store.js';
-
-function dedupeSources(items: ResearchSource[]): ResearchSource[] {
-  const seen = new Set<string>();
-  const results: ResearchSource[] = [];
-  for (const item of items) {
-    const key = item.url;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    results.push(item);
-  }
-  return results;
-}
 
 function countUniqueDomains(items: ResearchSource[]): number {
   return new Set(items.map((item) => item.domain)).size;
@@ -73,8 +61,6 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
     queryCount: plan.queries.length,
   });
 
-  const sourceResults: ResearchSource[] = [];
-  const perQueryLimit = Math.max(3, Math.min(10, Math.ceil(request.maxBudgetPages / Math.max(plan.queries.length, 1))));
   updateResearchTask(taskId, {
     status: 'discovering',
     checkpoint: {
@@ -87,28 +73,8 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
     },
   });
 
-  for (const query of plan.queries) {
-    const result = await search({
-      query,
-      maxResults: perQueryLimit,
-      freshness: request.freshness,
-    });
-
-    for (const item of result.data.results) {
-      if (!item.url || !item.title) continue;
-      sourceResults.push({
-        url: item.url,
-        title: item.title,
-        snippet: item.snippet || '',
-        domain: item.domain || new URL(item.url).hostname,
-        rank: item.rank || sourceResults.length + 1,
-        sourceQuery: query,
-      });
-    }
-  }
-
-  const dedupedSources = dedupeSources(sourceResults).slice(0, request.maxBudgetPages);
-  const { rankedSources } = buildResearchCorpus(request, dedupedSources);
+  const discoveredSources = await discoverResearchSources(request, plan);
+  const { rankedSources } = buildResearchCorpus(request, discoveredSources);
   const sources = rankedSources;
   updateResearchTask(taskId, {
     status: 'extracting',
@@ -175,6 +141,7 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
         evidenceCount: evidence.length,
         clusterCount: analysis.report.clusters.length,
         duplicateRatio: dedupedDocumentResult.duplicateRatio,
+        filteredDocumentCount: dedupedDocumentResult.filteredCount,
       },
     },
     meta: {
@@ -230,6 +197,7 @@ export async function resumeResearchTask(taskId: string): Promise<ResearchTopicR
           evidenceCount: Math.min(task.sources.length, 5),
           clusterCount: (task.report ?? analysis.report).clusters.length,
           duplicateRatio,
+          filteredDocumentCount: 0,
         },
       },
       meta: {

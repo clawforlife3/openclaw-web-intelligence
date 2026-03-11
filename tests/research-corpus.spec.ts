@@ -68,5 +68,40 @@ describe('buildResearchCorpus', () => {
 
     expect(result.documents).toHaveLength(1);
     expect(result.duplicateRatio).toBeGreaterThan(0);
+    expect(result.filteredCount).toBe(0);
+  });
+
+  it('filters thin content before ranking the corpus', () => {
+    const result = dedupeResearchDocuments([
+      {
+        url: 'https://example.com/thin',
+        finalUrl: 'https://example.com/thin',
+        domain: 'example.com',
+        title: 'Thin',
+        text: 'too short',
+        markdown: 'too short',
+        snippet: 'short',
+        qualityScore: 0.7,
+        confidence: 0.7,
+        extractedAt: '2026-03-11T00:00:00.000Z',
+        sourceQuery: 'a',
+      },
+      {
+        url: 'https://example.com/full',
+        finalUrl: 'https://example.com/full',
+        domain: 'example.com',
+        title: 'Full',
+        text: 'This is a more complete research document body with enough content to survive thin-content filtering and support document analysis.',
+        markdown: 'This is a more complete research document body with enough content to survive thin-content filtering and support document analysis.',
+        snippet: 'full',
+        qualityScore: 0.8,
+        confidence: 0.75,
+        extractedAt: '2026-03-11T00:00:00.000Z',
+        sourceQuery: 'b',
+      },
+    ]);
+
+    expect(result.documents).toHaveLength(1);
+    expect(result.filteredCount).toBe(1);
   });
 });

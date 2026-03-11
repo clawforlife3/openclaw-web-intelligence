@@ -34,6 +34,33 @@ vi.mock('../src/engines/search/search.js', () => ({
   })),
 }));
 
+vi.mock('../src/engines/crawl/crawler.js', () => ({
+  map: vi.fn(async () => ({
+    success: true,
+    data: {
+      urls: [
+        {
+          url: 'https://example.com/pricing',
+          depth: 0,
+          discoveredBy: 'sitemap',
+        },
+        {
+          url: 'https://another.com/docs',
+          depth: 0,
+          discoveredBy: 'sitemap',
+        },
+      ],
+      summary: {
+        visited: 2,
+        discovered: 2,
+        excluded: 0,
+        stoppedReason: 'scope_exhausted',
+      },
+    },
+    meta: {},
+  })),
+}));
+
 vi.mock('../src/engines/extract/httpExtractor.js', () => ({
   extract: vi.fn(async ({ urls }: { urls: string[] }) => ({
     success: true,
@@ -79,14 +106,16 @@ describe('researchTopic', () => {
 
     expect(result.success).toBe(true);
     expect(result.data.plan.queries.length).toBeGreaterThan(0);
-    expect(result.data.sources).toHaveLength(2);
+    expect(result.data.sources.length).toBeGreaterThanOrEqual(2);
     expect(result.data.documents).toHaveLength(2);
     expect(result.data.stats.uniqueDomainCount).toBe(2);
     expect(result.data.stats.documentCount).toBe(2);
+    expect(result.data.stats.filteredDocumentCount).toBe(0);
     expect(result.data.summary).toContain('台灣 CRM 市場');
     expect(result.data.findings.length).toBeGreaterThan(0);
     expect(result.data.evidence.length).toBeGreaterThan(0);
     expect(result.data.report.executiveSummary).toContain('台灣 CRM 市場');
+    expect(result.data.report.coverageSummary).toContain('domains');
     expect(result.data.report.clusters.length).toBeGreaterThan(0);
     expect(result.data.sources[0]?.evidenceScore).toBeGreaterThanOrEqual(result.data.sources[1]?.evidenceScore ?? 0);
 

@@ -67,12 +67,60 @@ function extractComparisonValues(documents: ResearchDocument[]): ResearchCompari
   const domainValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, doc.title || doc.domain]));
   const qualityValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, (doc.qualityScore ?? 0).toFixed(2)]));
   const confidenceValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, (doc.confidence ?? 0).toFixed(2)]));
+  const clusterValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, detectLabel(doc)]));
+  const evidenceValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, ((doc.evidenceScore ?? 0)).toFixed(2)]));
 
   return [
     { label: 'top_document', values: domainValues },
     { label: 'quality_score', values: qualityValues },
     { label: 'confidence', values: confidenceValues },
+    { label: 'content_type', values: clusterValues },
+    { label: 'evidence_score', values: evidenceValues },
   ];
+}
+
+function buildCoverageSummary(documents: ResearchDocument[], clusters: ResearchCluster[]): string {
+  const domains = unique(documents.map((doc) => doc.domain));
+  return `Coverage spans ${documents.length} documents across ${domains.length} domains and ${clusters.length} content clusters.`;
+}
+
+function buildTrendSignals(request: ResearchTopicRequest, documents: ResearchDocument[], clusters: ResearchCluster[]): string[] {
+  const signals: string[] = [];
+  const labels = clusters.map((cluster) => cluster.label);
+
+  if (labels.includes('pricing')) {
+    signals.push(`Pricing-related evidence is active in the current "${request.topic}" corpus.`);
+  }
+  if (labels.includes('discussion') || labels.includes('reviews')) {
+    signals.push(`Community or review signals are present for "${request.topic}".`);
+  }
+  if (labels.includes('docs')) {
+    signals.push(`Documentation-style evidence suggests deeper product maturity signals for "${request.topic}".`);
+  }
+
+  const highConfidence = documents.filter((doc) => (doc.confidence ?? 0) >= 0.75).length;
+  if (highConfidence > 0) {
+    signals.push(`${highConfidence} documents currently clear the high-confidence threshold.`);
+  }
+
+  return signals;
+}
+
+function buildUncertainties(documents: ResearchDocument[], evidence: ResearchEvidence[]): string[] {
+  const notes: string[] = [];
+  const uniqueDomains = unique(documents.map((doc) => doc.domain)).length;
+
+  if (documents.length < 4) {
+    notes.push('Document corpus is still small; broad conclusions may be premature.');
+  }
+  if (uniqueDomains <= 2) {
+    notes.push('Domain diversity remains limited and may bias the analysis.');
+  }
+  if (evidence.length < 3) {
+    notes.push('Evidence set is narrow; more corroborating sources would improve confidence.');
+  }
+
+  return notes;
 }
 
 function buildInsights(request: ResearchTopicRequest, documents: ResearchDocument[], clusters: ResearchCluster[]): string[] {
@@ -111,7 +159,10 @@ export function buildResearchReport(input: {
     clusteredDocuments,
     report: {
       executiveSummary: `Research report for "${input.request.topic}" built from ${clusteredDocuments.length} extracted documents and ${input.evidence.length} top evidence items.`,
+      coverageSummary: buildCoverageSummary(clusteredDocuments, clusters),
       keyInsights: insights,
+      trendSignals: buildTrendSignals(input.request, clusteredDocuments, clusters),
+      uncertainties: buildUncertainties(clusteredDocuments, input.evidence),
       comparisons,
       clusters,
       citations: input.evidence,

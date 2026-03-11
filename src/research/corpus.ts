@@ -68,13 +68,42 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-export function dedupeResearchDocuments(documents: ResearchDocument[]): { documents: ResearchDocument[]; duplicateRatio: number } {
+function isThinContent(document: ResearchDocument): boolean {
+  return normalizeText(document.text).length < 10 || tokenize(document.text).length < 3;
+}
+
+function similarity(a: string, b: string): number {
+  const aTokens = unique(tokenize(a));
+  const bTokens = unique(tokenize(b));
+  if (aTokens.length === 0 || bTokens.length === 0) return 0;
+  const bSet = new Set(bTokens);
+  const intersection = aTokens.filter((token) => bSet.has(token)).length;
+  const union = new Set([...aTokens, ...bTokens]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+export function dedupeResearchDocuments(documents: ResearchDocument[]): {
+  documents: ResearchDocument[];
+  duplicateRatio: number;
+  filteredCount: number;
+} {
   const seen = new Set<string>();
   const uniqueDocs: ResearchDocument[] = [];
+  let filteredCount = 0;
 
   for (const document of documents) {
+    if (isThinContent(document)) {
+      filteredCount += 1;
+      continue;
+    }
+
     const signature = `${document.domain}:${normalizeText(document.title || '')}:${normalizeText(document.text.slice(0, 300))}`;
     if (seen.has(signature)) continue;
+    const isNearDuplicate = uniqueDocs.some((existing) => (
+      existing.domain === document.domain
+        && similarity(existing.text.slice(0, 600), document.text.slice(0, 600)) >= 0.88
+    ));
+    if (isNearDuplicate) continue;
     seen.add(signature);
     uniqueDocs.push(document);
   }
@@ -83,5 +112,6 @@ export function dedupeResearchDocuments(documents: ResearchDocument[]): { docume
   return {
     documents: uniqueDocs.sort((a, b) => (b.evidenceScore ?? 0) - (a.evidenceScore ?? 0)),
     duplicateRatio,
+    filteredCount,
   };
 }
