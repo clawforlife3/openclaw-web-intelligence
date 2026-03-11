@@ -31,4 +31,4 @@ export { getMonitorTopicTask, getMonitorTopicTaskList, monitorTopic, rerunMonito
 export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../research/gateway.js';
 export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from '../research/analysis.js';
 export { getRelatedRegisteredTasks, listRegisteredTasks, loadRegisteredTask } from '../research/taskRegistry.js';
-export { listMonitoringDeliveries } from '../research/delivery.js';
+export { buildTopicMonitoringDigest, listMonitoringDeliveries } from '../research/delivery.js';

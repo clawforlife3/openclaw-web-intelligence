@@ -42,7 +42,7 @@ vi.mock('../src/monitor/monitor.js', () => ({
 
 const { monitorTopic } = await import('../src/research/monitoring.js');
 const { loadRegisteredTask } = await import('../src/research/taskRegistry.js');
-const { listMonitoringDeliveries } = await import('../src/research/delivery.js');
+const { buildTopicMonitoringDigest, listMonitoringDeliveries } = await import('../src/research/delivery.js');
 
 describe('task registry and delivery', () => {
   monitorMock.mockImplementation(async () => ({
@@ -81,5 +81,10 @@ describe('task registry and delivery', () => {
     const matchingDelivery = deliveries.find((delivery) => delivery.taskId === result.data.taskId);
     expect(matchingDelivery).toBeTruthy();
     expect(matchingDelivery?.title).toContain('品牌監控');
+
+    const digest = buildTopicMonitoringDigest('品牌監控');
+    expect(digest.deliveryCount).toBeGreaterThan(0);
+    expect(digest.latestSummary).toContain('品牌監控');
+    expect(digest.highlights.length).toBeGreaterThan(0);
   });
 });

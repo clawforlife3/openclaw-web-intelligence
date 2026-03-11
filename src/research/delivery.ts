@@ -51,3 +51,23 @@ export function listMonitoringDeliveries(): MonitoringDeliveryEnvelope[] {
     .filter((item): item is MonitoringDeliveryEnvelope => Boolean(item))
     .sort((a, b) => b.deliveredAt.localeCompare(a.deliveredAt));
 }
+
+export function buildTopicMonitoringDigest(topic: string, limit = 5): {
+  topic: string;
+  deliveryCount: number;
+  severities: string[];
+  latestSummary?: string;
+  highlights: string[];
+} {
+  const deliveries = listMonitoringDeliveries()
+    .filter((delivery) => delivery.topic === topic)
+    .slice(0, limit);
+
+  return {
+    topic,
+    deliveryCount: deliveries.length,
+    severities: Array.from(new Set(deliveries.map((delivery) => delivery.severity))),
+    latestSummary: deliveries[0]?.summary,
+    highlights: deliveries.flatMap((delivery) => delivery.bullets).slice(0, 8),
+  };
+}

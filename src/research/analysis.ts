@@ -16,6 +16,7 @@ function tokenize(text: string): string[] {
 }
 
 function detectLabel(document: ResearchDocument): string {
+  if (document.normalizedStructured?.category) return document.normalizedStructured.category;
   const path = new URL(document.finalUrl).pathname.toLowerCase();
   const title = (document.title || '').toLowerCase();
   const text = `${title} ${path}`;
@@ -69,6 +70,7 @@ function extractComparisonValues(documents: ResearchDocument[]): ResearchCompari
   const confidenceValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, (doc.confidence ?? 0).toFixed(2)]));
   const clusterValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, detectLabel(doc)]));
   const evidenceValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, ((doc.evidenceScore ?? 0)).toFixed(2)]));
+  const authorValues = Object.fromEntries(topDocs.map((doc) => [doc.domain, doc.normalizedStructured?.author ?? 'n/a']));
 
   return [
     { label: 'top_document', values: domainValues },
@@ -76,12 +78,14 @@ function extractComparisonValues(documents: ResearchDocument[]): ResearchCompari
     { label: 'confidence', values: confidenceValues },
     { label: 'content_type', values: clusterValues },
     { label: 'evidence_score', values: evidenceValues },
+    { label: 'author_or_owner', values: authorValues },
   ];
 }
 
 function buildCoverageSummary(documents: ResearchDocument[], clusters: ResearchCluster[]): string {
   const domains = unique(documents.map((doc) => doc.domain));
-  return `Coverage spans ${documents.length} documents across ${domains.length} domains and ${clusters.length} content clusters.`;
+  const structuredDocs = documents.filter((doc) => doc.normalizedStructured).length;
+  return `Coverage spans ${documents.length} documents across ${domains.length} domains and ${clusters.length} content clusters, with ${structuredDocs} normalized structured documents.`;
 }
 
 function buildTrendSignals(request: ResearchTopicRequest, documents: ResearchDocument[], clusters: ResearchCluster[]): string[] {

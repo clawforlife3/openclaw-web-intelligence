@@ -12,7 +12,13 @@ vi.mock('../src/engines/extract/httpExtractor.js', () => ({
         text: 'Extracted content for research pipeline.',
         metadata: { statusCode: 200 },
         html: null,
-        structured: {},
+        structured: {
+          kind: 'article',
+          author: 'Nova',
+          publishedAt: '2026-03-11',
+          section: 'Engineering',
+          headingTree: ['Overview', 'Pricing'],
+        },
         links: [],
         confidence: 0.8,
         sourceQuality: 0.75,
@@ -52,5 +58,8 @@ describe('collectCorpus', () => {
     expect(docs).toHaveLength(1);
     expect(docs[0]?.domain).toBe('example.com');
     expect(docs[0]?.qualityScore).toBe(0.75);
+    expect(docs[0]?.normalizedStructured?.kind).toBe('article');
+    expect(docs[0]?.normalizedStructured?.author).toBe('Nova');
+    expect(docs[0]?.normalizedStructured?.keyPoints).toContain('Overview');
   });
 });

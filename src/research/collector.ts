@@ -1,5 +1,6 @@
 import { extract } from '../engines/extract/httpExtractor.js';
 import type { ResearchDocument, ResearchSource, ResearchTopicRequest } from '../types/schemas.js';
+import { normalizeResearchStructured } from './normalizeStructured.js';
 
 function makeSnippet(text: string, fallback: string): string {
   const base = text.trim() || fallback.trim();
@@ -41,6 +42,7 @@ export async function collectCorpus(
         sourceQuery: source.sourceQuery,
         relevanceScore: source.relevanceScore,
         evidenceScore: source.evidenceScore,
+        normalizedStructured: normalizeResearchStructured(doc.structured as Record<string, unknown> | undefined),
       });
     } catch {
       // Best-effort collection for baseline research pipeline.

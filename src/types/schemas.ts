@@ -419,6 +419,16 @@ export const ResearchDocumentSchema = z.object({
   relevanceScore: z.number().min(0).max(1).optional(),
   evidenceScore: z.number().min(0).max(1).optional(),
   clusterId: z.string().optional(),
+  normalizedStructured: z.object({
+    kind: z.string().optional(),
+    category: z.string().optional(),
+    author: z.string().optional(),
+    publishedAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    section: z.string().optional(),
+    pathType: z.string().optional(),
+    keyPoints: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 export const ResearchComparisonRowSchema = z.object({
