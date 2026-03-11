@@ -352,6 +352,122 @@ export const ErrorResponseSchema = z.object({
 });
 
 // ============================================
+// Autonomous Research Skill
+// ============================================
+
+export const ResearchGoalSchema = z.enum(['summary', 'compare', 'track', 'monitor', 'explore_domain']);
+
+export const ResearchTopicRequestSchema = z.object({
+  topic: z.string().min(3),
+  goal: ResearchGoalSchema.optional().default('summary'),
+  timeRange: z.string().optional(),
+  region: z.string().optional(),
+  language: z.string().optional().default('zh-TW'),
+  sourcePreferences: z.array(z.string().min(1)).optional().default([]),
+  freshness: z.enum(['day', 'week', 'month', 'year', 'any']).optional().default('any'),
+  maxBudgetPages: z.number().int().min(1).max(1000).optional().default(100),
+  maxRuntimeMinutes: z.number().int().min(1).max(1440).optional().default(30),
+  outputFormat: z.enum(['summary', 'report', 'comparison']).optional().default('report'),
+});
+
+export const ResearchPlanSchema = z.object({
+  queries: z.array(z.string()).min(1),
+  sourceTypes: z.array(z.string()).min(1),
+  targetPatterns: z.array(z.string()).optional().default([]),
+  stopConditions: z.array(z.string()).min(1),
+  qualityThresholds: z.array(z.string()).min(1),
+});
+
+export const ResearchSourceSchema = z.object({
+  url: z.string().url(),
+  title: z.string(),
+  snippet: z.string().optional().default(''),
+  domain: z.string(),
+  rank: z.number().int(),
+  sourceQuery: z.string(),
+  relevanceScore: z.number().min(0).max(1).optional(),
+  qualityScore: z.number().min(0).max(1).optional(),
+  diversityBoost: z.number().min(0).max(1).optional(),
+  evidenceScore: z.number().min(0).max(1).optional(),
+});
+
+export const ResearchFindingSchema = z.object({
+  label: z.string(),
+  detail: z.string(),
+});
+
+export const ResearchEvidenceSchema = z.object({
+  url: z.string().url(),
+  domain: z.string(),
+  title: z.string(),
+  snippet: z.string(),
+  evidenceScore: z.number().min(0).max(1),
+});
+
+export const ResearchDocumentSchema = z.object({
+  url: z.string().url(),
+  finalUrl: z.string().url(),
+  domain: z.string(),
+  title: z.string().optional(),
+  text: z.string(),
+  markdown: z.string(),
+  snippet: z.string(),
+  qualityScore: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1),
+  extractedAt: z.string(),
+  sourceQuery: z.string(),
+  relevanceScore: z.number().min(0).max(1).optional(),
+  evidenceScore: z.number().min(0).max(1).optional(),
+});
+
+export const ResearchTaskStatusSchema = z.enum([
+  'pending',
+  'planning',
+  'discovering',
+  'fetching',
+  'extracting',
+  'processing_corpus',
+  'reporting',
+  'completed',
+  'failed',
+  'partial',
+]);
+
+export const ResearchTaskCheckpointSchema = z.object({
+  stage: ResearchTaskStatusSchema,
+  completedUrls: z.array(z.string().url()).optional().default([]),
+  pendingUrls: z.array(z.string().url()).optional().default([]),
+  sourceCount: z.number().int().optional().default(0),
+  documentCount: z.number().int().optional().default(0),
+  updatedAt: z.string(),
+});
+
+export const ResearchTopicResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    taskId: z.string(),
+    status: z.enum(['planned', 'discovering', 'completed']),
+    topic: z.string(),
+    goal: ResearchGoalSchema,
+    plan: ResearchPlanSchema,
+    sources: z.array(ResearchSourceSchema),
+    documents: z.array(ResearchDocumentSchema),
+    summary: z.string(),
+    findings: z.array(ResearchFindingSchema),
+    evidence: z.array(ResearchEvidenceSchema),
+    confidenceNotes: z.array(z.string()),
+    stats: z.object({
+      queryCount: z.number().int(),
+      sourceCount: z.number().int(),
+      documentCount: z.number().int(),
+      uniqueDomainCount: z.number().int(),
+      evidenceCount: z.number().int(),
+    }),
+  }),
+  meta: CommonMetaSchema.optional(),
+});
+
+// ============================================
 // Type Exports
 // ============================================
 
@@ -380,3 +496,13 @@ export type CacheOptions = z.infer<typeof CacheOptionsSchema>;
 export type CacheEntry = z.infer<typeof CacheEntrySchema>;
 export type CacheStats = z.infer<typeof CacheStatsSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+export type ResearchGoal = z.infer<typeof ResearchGoalSchema>;
+export type ResearchTopicRequest = z.infer<typeof ResearchTopicRequestSchema>;
+export type ResearchPlan = z.infer<typeof ResearchPlanSchema>;
+export type ResearchSource = z.infer<typeof ResearchSourceSchema>;
+export type ResearchFinding = z.infer<typeof ResearchFindingSchema>;
+export type ResearchEvidence = z.infer<typeof ResearchEvidenceSchema>;
+export type ResearchDocument = z.infer<typeof ResearchDocumentSchema>;
+export type ResearchTaskStatus = z.infer<typeof ResearchTaskStatusSchema>;
+export type ResearchTaskCheckpoint = z.infer<typeof ResearchTaskCheckpointSchema>;
+export type ResearchTopicResponse = z.infer<typeof ResearchTopicResponseSchema>;

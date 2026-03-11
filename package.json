@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "extract": "tsx src/scripts/run-extract.ts",
     "search": "tsx src/scripts/run-search.ts",
+    "research": "tsx src/scripts/run-research.ts",
     "map": "tsx src/scripts/run-map.ts",
     "crawl": "tsx src/scripts/run-crawl.ts",
     "monitor": "tsx src/scripts/run-monitor.ts",

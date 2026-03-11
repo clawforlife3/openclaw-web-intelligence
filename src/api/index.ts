@@ -21,3 +21,8 @@ export { createEvasionManager, getEvasionManager, setEvasionManager } from '../a
 export { createSessionStore, getSessionStore, setSessionStore, detectChallenge, handleChallenge } from '../anti-bot/index.js';
 export { getDashboardSnapshot } from '../observability/dashboard.js';
 export { ClusterCoordinator, buildNamespace, chooseRegion } from '../queue/orchestrator.js';
+export { buildResearchPlan } from '../research/planner.js';
+export { researchTopic } from '../research/gateway.js';
+export { buildResearchCorpus } from '../research/corpus.js';
+export { collectCorpus } from '../research/collector.js';
+export { loadResearchTask, listResearchTasks, saveResearchTask, updateResearchTask } from '../research/store.js';

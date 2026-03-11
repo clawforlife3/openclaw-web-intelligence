@@ -1,0 +1,177 @@
+import { search } from '../engines/search/search.js';
+import { logInfo } from '../observability/logger.js';
+import { incrementMetric } from '../observability/metrics.js';
+import {
+  type ResearchEvidence,
+  type ResearchFinding,
+  type ResearchDocument,
+  ResearchTopicRequestSchema,
+  ResearchTopicResponseSchema,
+  type ResearchSource,
+  type ResearchTopicRequest,
+  type ResearchTopicResponse,
+} from '../types/schemas.js';
+import { generateRequestId, generateTraceId } from '../types/utils.js';
+import { collectCorpus } from './collector.js';
+import { buildResearchCorpus } from './corpus.js';
+import { buildResearchPlan } from './planner.js';
+import {
+  buildConfidenceNotes,
+  buildResearchEvidence,
+  buildResearchFindings,
+  buildResearchSummary,
+} from './reporter.js';
+import { saveResearchTask, updateResearchTask } from './store.js';
+
+function dedupeSources(items: ResearchSource[]): ResearchSource[] {
+  const seen = new Set<string>();
+  const results: ResearchSource[] = [];
+  for (const item of items) {
+    const key = item.url;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(item);
+  }
+  return results;
+}
+
+function countUniqueDomains(items: ResearchSource[]): number {
+  return new Set(items.map((item) => item.domain)).size;
+}
+
+export async function researchTopic(input: ResearchTopicRequest): Promise<ResearchTopicResponse> {
+  const started = Date.now();
+  const requestId = generateRequestId();
+  const traceId = generateTraceId();
+  const taskId = `research_${Date.now().toString(36)}`;
+  const request = ResearchTopicRequestSchema.parse(input);
+  const plan = buildResearchPlan(request);
+  saveResearchTask({
+    taskId,
+    request,
+    status: 'planning',
+    plan,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    checkpoint: {
+      stage: 'planning',
+      completedUrls: [],
+      pendingUrls: [],
+      sourceCount: 0,
+      documentCount: 0,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  logInfo('research.planned', 'Research topic planned', {
+    traceId,
+    requestId,
+    taskId,
+    topic: request.topic,
+    goal: request.goal,
+    queryCount: plan.queries.length,
+  });
+
+  const sourceResults: ResearchSource[] = [];
+  const perQueryLimit = Math.max(3, Math.min(10, Math.ceil(request.maxBudgetPages / Math.max(plan.queries.length, 1))));
+  updateResearchTask(taskId, {
+    status: 'discovering',
+    checkpoint: {
+      stage: 'discovering',
+      completedUrls: [],
+      pendingUrls: [],
+      sourceCount: 0,
+      documentCount: 0,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  for (const query of plan.queries) {
+    const result = await search({
+      query,
+      maxResults: perQueryLimit,
+      freshness: request.freshness,
+    });
+
+    for (const item of result.data.results) {
+      if (!item.url || !item.title) continue;
+      sourceResults.push({
+        url: item.url,
+        title: item.title,
+        snippet: item.snippet || '',
+        domain: item.domain || new URL(item.url).hostname,
+        rank: item.rank || sourceResults.length + 1,
+        sourceQuery: query,
+      });
+    }
+  }
+
+  const dedupedSources = dedupeSources(sourceResults).slice(0, request.maxBudgetPages);
+  const { rankedSources } = buildResearchCorpus(request, dedupedSources);
+  const sources = rankedSources;
+  updateResearchTask(taskId, {
+    status: 'extracting',
+    sources,
+    checkpoint: {
+      stage: 'extracting',
+      completedUrls: [],
+      pendingUrls: sources.map((source) => source.url),
+      sourceCount: sources.length,
+      documentCount: 0,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+  const documents: ResearchDocument[] = await collectCorpus(request, sources);
+  const evidence: ResearchEvidence[] = buildResearchEvidence(sources);
+  const findings: ResearchFinding[] = buildResearchFindings(request, sources, documents);
+  const summary = buildResearchSummary(request, sources, documents);
+  const confidenceNotes = buildConfidenceNotes(sources, documents);
+  incrementMetric('searchRuns', 0);
+  updateResearchTask(taskId, {
+    status: 'completed',
+    documents,
+    summary,
+    checkpoint: {
+      stage: 'completed',
+      completedUrls: documents.map((document) => document.url),
+      pendingUrls: sources
+        .map((source) => source.url)
+        .filter((url) => !documents.some((document) => document.url === url)),
+      sourceCount: sources.length,
+      documentCount: documents.length,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  const response: ResearchTopicResponse = {
+    success: true,
+    data: {
+      taskId,
+      status: 'completed',
+      topic: request.topic,
+      goal: request.goal,
+      plan,
+      sources,
+      documents,
+      summary,
+      findings,
+      evidence,
+      confidenceNotes,
+      stats: {
+        queryCount: plan.queries.length,
+        sourceCount: sources.length,
+        documentCount: documents.length,
+        uniqueDomainCount: countUniqueDomains(sources),
+        evidenceCount: evidence.length,
+      },
+    },
+    meta: {
+      requestId,
+      traceId,
+      tookMs: Date.now() - started,
+      schemaVersion: 'v1',
+    },
+  };
+
+  return ResearchTopicResponseSchema.parse(response);
+}
