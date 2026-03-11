@@ -34,3 +34,4 @@ export { getRelatedRegisteredTasks, listRegisteredTasks, loadRegisteredTask } fr
 export { buildTopicMonitoringDigest, listMonitoringDeliveries } from '../research/delivery.js';
 export { processDueMonitorTopicTasks } from '../research/monitoringRunner.js';
 export { acquireMonitoringCycleLease, getMonitoringCycleLease, releaseMonitoringCycleLease } from '../research/runnerState.js';
+export { buildTaskBriefing, buildTopicBriefing } from '../research/briefing.js';
