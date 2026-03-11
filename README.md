@@ -3,7 +3,7 @@
 > 為 OpenClaw Agent 設計的 autonomous web research skill：topic planning、discovery、fetch/extract、domain crawl、topic monitoring、evidence-backed reporting。
 
 - GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
-- Current status: **MVP 2.0 first-usable，正進入 production hardening**
+- Current status: **Single-agent research baseline 已可用，正補齊 pre-multi-agent orchestration**
 - 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
 - PRD：[`docs/openclaw-web-intelligence-prd.md`](./docs/openclaw-web-intelligence-prd.md)
 - SDD：[`docs/openclaw-web-intelligence-sdd.md`](./docs/openclaw-web-intelligence-sdd.md)
@@ -36,12 +36,13 @@ topic -> planner -> discovery -> retrieval/extraction -> corpus -> report
 ## 這個專案能做什麼
 
 ### 新的 task-level 入口
-- **Research Topic**：輸入 topic，自動產生 query、收集 sources、抽取 documents、生成初步 findings/evidence
+- **Research Topic**：輸入 topic，自動產生 query、收集 sources、做 domain expansion、抽取 documents、生成 structured report
 - **Crawl Domain**：輸入 domain，回傳 categorized URLs 與 recommended extraction targets
-- **Monitor Topic**：輸入 topic + watch domains，建立主題級監控輸出
+- **Monitor Topic**：輸入 topic + watch domains，建立 recurring 監控、trend diff 與關聯 research report
 
 ### 已完成能力
 - **Search**：用 DDGS 做網頁搜尋
+- **Research Discovery**：search harvesting + promising domain expansion（含 sitemap-aware map baseline）
 - **Extract**：抓單頁內容，輸出 markdown / text / metadata / links / structured
 - **Map**：用 BFS 探索站內 URL 結構
 - **Crawl**：邊探索邊擷取內容
@@ -51,6 +52,7 @@ topic -> planner -> discovery -> retrieval/extraction -> corpus -> report
 - **Structured Extraction v1.1**：article / docs / product / forum
 - **Robots Policy v1**：strict / balanced / off
 - **Monitor / Diff v1**：baseline snapshot + field diff
+- **Monitoring Trend Reporting**：new / persistent / dropped signals + run history baseline
 - **Sitemap Ingestion v1**：sitemap.xml 發現 URL，與 map/crawl 整合
 - **Retry Classification v1**：標準化 retry reason 分類、fetch outcome 追蹤、shell detection 標記
 - **Host Policy Memory v1**：每個 host 的 fetch 歷史，動態調整 routing
@@ -107,7 +109,7 @@ Agent / CLI
        -> browser fetch ----> extract pipeline -> cache -> observability
   -> queue / worker / redis / task store
   -> proxy pool / rate limiter / anti-bot / session store
-  -> corpus scoring / report
+  -> corpus scoring / near-dedup / trend-aware report
   -> metrics / dashboard / health
 ```
 
