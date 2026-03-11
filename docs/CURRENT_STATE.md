@@ -240,7 +240,12 @@
    - 已有 digest / briefing / cycle runner baseline
    - 尚未形成更高階的 external alert routing
 
-5. **Operations completeness**
+5. **OpenClaw integration**
+   - skill 定義已重寫成 task-level research backend
+   - 但尚未完成真正的 OpenClaw tool invocation adapter
+   - 仍缺 `research_topic / crawl_domain / monitor_topic` 的對接 schema、參數映射、結果包裝與調用流程
+
+6. **Operations completeness**
    - 真 Redis / proxy integration 仍需在完整環境驗證
    - recurring orchestration 的 soak test 尚未完成
 
@@ -250,15 +255,18 @@
 
 ### Current Priority
 
-1. richer contradiction / agreement detection
-2. recurring topic intelligence external alert routing
-3. recurring research orchestration 的長時驗證
-4. final report sectioning / output polish
-5. feed discovery / frontier persistence
+1. OpenClaw skill invocation adapter
+   - 讓 OpenClaw 可直接調用 `research_topic / crawl_domain / monitor_topic`
+   - 明確定義 tool schema、CLI/API 映射、結果包裝與失敗回傳
+2. richer contradiction / agreement detection
+3. recurring topic intelligence external alert routing
+4. recurring research orchestration 的長時驗證
+5. final report sectioning / output polish
+6. feed discovery / frontier persistence
 
 ### Later-phase Work
 
-6. multi-agent split
+7. multi-agent split
 
 ## Bottom Line
 
