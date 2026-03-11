@@ -1,4 +1,5 @@
 import { getCache } from '../storage/cache.js';
+import { upsertRegisteredTask } from './taskRegistry.js';
 import type { MonitorTopicRequest } from '../types/schemas.js';
 
 export interface StoredMonitorTopicRun {
@@ -67,6 +68,22 @@ export function saveMonitorTopicTask(task: StoredMonitorTopicTask): void {
   if (!index.includes(task.taskId)) {
     index.push(task.taskId);
     store.set(TASK_INDEX_KEY, index);
+  }
+  upsertRegisteredTask({
+    taskId: task.taskId,
+    taskType: 'monitor_topic',
+    topic: task.topic,
+    status: task.status,
+    relatedTaskIds: task.researchTaskIds,
+  });
+  for (const relatedTaskId of task.researchTaskIds) {
+    upsertRegisteredTask({
+      taskId: relatedTaskId,
+      taskType: 'research_topic',
+      topic: task.topic,
+      status: 'completed',
+      relatedTaskIds: [task.taskId],
+    });
   }
 }
 

@@ -10,8 +10,10 @@ import { generateRequestId, generateTraceId } from '../types/utils.js';
 import { buildResearchPlan } from './planner.js';
 import { getNextMonitoringRunAt } from './monitoringScheduler.js';
 import { researchTopic } from './gateway.js';
+import { createTaskId } from './taskIds.js';
 import { buildMonitoringTrend } from './monitoringAnalysis.js';
 import { buildMonitoringDigest } from './monitoringDigest.js';
+import { deliverMonitoringEnvelope } from './delivery.js';
 import {
   loadMonitorTopicTask,
   listMonitorTopicTasks,
@@ -168,6 +170,17 @@ async function runMonitorTopicTask(task: StoredMonitorTopicTask): Promise<Monito
     runAt: lastRunAt,
   };
 
+  deliverMonitoringEnvelope({
+    taskId: task.taskId,
+    topic: task.request.topic,
+    severity: digest.alertSeverity,
+    title: digest.alertTitle,
+    summary: digest.digestSummary,
+    bullets: digest.digestBullets,
+    relatedResearchTaskId,
+    deliveredAt: lastRunAt,
+  });
+
   saveMonitorTopicTask({
     ...task,
     status,
@@ -235,7 +248,7 @@ export async function monitorTopic(input: MonitorTopicRequest): Promise<MonitorT
   const request = MonitorTopicRequestSchema.parse(input);
   const now = new Date().toISOString();
   const task: StoredMonitorTopicTask = {
-    taskId: `monitor_topic_${Date.now().toString(36)}`,
+    taskId: createTaskId('monitor_topic'),
     request,
     status: 'created',
     topic: request.topic,

@@ -16,6 +16,7 @@
     "extract": "tsx src/scripts/run-extract.ts",
     "search": "tsx src/scripts/run-search.ts",
     "research": "tsx src/scripts/run-research.ts",
+    "task-registry": "tsx src/scripts/run-task-registry.ts",
     "crawl-domain": "tsx src/scripts/run-crawl-domain.ts",
     "monitor-topic": "tsx src/scripts/run-monitor-topic.ts",
     "map": "tsx src/scripts/run-map.ts",

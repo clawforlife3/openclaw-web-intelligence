@@ -16,6 +16,7 @@ import { buildResearchCorpus, dedupeResearchDocuments } from './corpus.js';
 import { buildResearchReport } from './analysis.js';
 import { discoverResearchSources } from './discovery.js';
 import { buildResearchPlan } from './planner.js';
+import { createTaskId } from './taskIds.js';
 import {
   buildConfidenceNotes,
   buildResearchEvidence,
@@ -32,7 +33,7 @@ export async function researchTopic(input: ResearchTopicRequest): Promise<Resear
   const started = Date.now();
   const requestId = generateRequestId();
   const traceId = generateTraceId();
-  const taskId = `research_${Date.now().toString(36)}`;
+  const taskId = createTaskId('research');
   const request = ResearchTopicRequestSchema.parse(input);
   const plan = buildResearchPlan(request);
   saveResearchTask({

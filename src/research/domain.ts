@@ -1,6 +1,7 @@
 import { map } from '../engines/crawl/crawler.js';
 import { CrawlDomainRequestSchema, CrawlDomainResponseSchema, type CrawlDomainRequest, type CrawlDomainResponse } from '../types/schemas.js';
 import { generateRequestId, generateTraceId } from '../types/utils.js';
+import { createTaskId } from './taskIds.js';
 
 function normalizeDomain(input: string): string {
   return input.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
@@ -50,7 +51,7 @@ export async function crawlDomain(input: CrawlDomainRequest): Promise<CrawlDomai
   return CrawlDomainResponseSchema.parse({
     success: true,
     data: {
-      taskId: `crawl_domain_${Date.now().toString(36)}`,
+      taskId: createTaskId('crawl_domain'),
       status: 'completed',
       domain,
       goal: request.goal,

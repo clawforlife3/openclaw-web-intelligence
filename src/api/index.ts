@@ -30,3 +30,5 @@ export { crawlDomain } from '../research/domain.js';
 export { getMonitorTopicTask, getMonitorTopicTaskList, monitorTopic, rerunMonitorTopicTask } from '../research/monitoring.js';
 export { getResearchTask, getResearchTaskList, resumeResearchTask } from '../research/gateway.js';
 export { buildResearchReport, clusterResearchDocuments, assignClusterIds } from '../research/analysis.js';
+export { getRelatedRegisteredTasks, listRegisteredTasks, loadRegisteredTask } from '../research/taskRegistry.js';
+export { listMonitoringDeliveries } from '../research/delivery.js';

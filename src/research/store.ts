@@ -1,4 +1,5 @@
 import { getCache } from '../storage/cache.js';
+import { upsertRegisteredTask } from './taskRegistry.js';
 import type {
   ResearchDocument,
   ResearchPlan,
@@ -41,6 +42,12 @@ export function saveResearchTask(task: StoredResearchTask): void {
     index.push(task.taskId);
     store.set(TASK_INDEX_KEY, index);
   }
+  upsertRegisteredTask({
+    taskId: task.taskId,
+    taskType: 'research_topic',
+    topic: task.request.topic,
+    status: task.status,
+  });
 }
 
 export function loadResearchTask(taskId: string): StoredResearchTask | null {
