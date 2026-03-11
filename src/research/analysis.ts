@@ -4,6 +4,7 @@ import type {
   ResearchDocument,
   ResearchEvidence,
   ResearchReport,
+  ResearchReportSection,
   ResearchTopicRequest,
 } from '../types/schemas.js';
 
@@ -210,6 +211,74 @@ function buildInsights(request: ResearchTopicRequest, documents: ResearchDocumen
   return insights;
 }
 
+function buildReportSections(input: {
+  coverageSummary: string;
+  keyInsights: string[];
+  trendSignals: string[];
+  agreements: string[];
+  contradictions: string[];
+  uncertainties: string[];
+}): ResearchReportSection[] {
+  const sections: ResearchReportSection[] = [
+    {
+      title: 'Coverage',
+      bullets: [input.coverageSummary],
+    },
+    {
+      title: 'Key Insights',
+      bullets: input.keyInsights,
+    },
+  ];
+
+  if (input.trendSignals.length > 0) {
+    sections.push({
+      title: 'Trend Signals',
+      bullets: input.trendSignals,
+    });
+  }
+  if (input.agreements.length > 0) {
+    sections.push({
+      title: 'Agreements',
+      bullets: input.agreements,
+    });
+  }
+  if (input.contradictions.length > 0) {
+    sections.push({
+      title: 'Contradictions',
+      bullets: input.contradictions,
+    });
+  }
+  if (input.uncertainties.length > 0) {
+    sections.push({
+      title: 'Uncertainties',
+      bullets: input.uncertainties,
+    });
+  }
+
+  return sections;
+}
+
+function renderMarkdownReport(input: {
+  topic: string;
+  executiveSummary: string;
+  sections: ResearchReportSection[];
+}): string {
+  const lines: string[] = [
+    `# Research Report: ${input.topic}`,
+    '',
+    input.executiveSummary,
+  ];
+
+  for (const section of input.sections) {
+    lines.push('', `## ${section.title}`);
+    for (const bullet of section.bullets) {
+      lines.push(`- ${bullet}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 export function buildResearchReport(input: {
   request: ResearchTopicRequest;
   documents: ResearchDocument[];
@@ -222,17 +291,35 @@ export function buildResearchReport(input: {
   const comparisons = input.request.goal === 'compare'
     ? extractComparisonValues(clusteredDocuments)
     : [];
+  const executiveSummary = `Research report for "${input.request.topic}" built from ${clusteredDocuments.length} extracted documents and ${input.evidence.length} top evidence items.`;
+  const coverageSummary = buildCoverageSummary(clusteredDocuments, clusters);
+  const trendSignals = buildTrendSignals(input.request, clusteredDocuments, clusters);
+  const uncertainties = buildUncertainties(clusteredDocuments, input.evidence);
+  const sections = buildReportSections({
+    coverageSummary,
+    keyInsights: insights,
+    trendSignals,
+    agreements: agreementState.agreements,
+    contradictions: agreementState.contradictions,
+    uncertainties,
+  });
 
   return {
     clusteredDocuments,
     report: {
-      executiveSummary: `Research report for "${input.request.topic}" built from ${clusteredDocuments.length} extracted documents and ${input.evidence.length} top evidence items.`,
-      coverageSummary: buildCoverageSummary(clusteredDocuments, clusters),
+      executiveSummary,
+      coverageSummary,
       keyInsights: insights,
-      trendSignals: buildTrendSignals(input.request, clusteredDocuments, clusters),
-      uncertainties: buildUncertainties(clusteredDocuments, input.evidence),
+      trendSignals,
+      uncertainties,
       agreements: agreementState.agreements,
       contradictions: agreementState.contradictions,
+      sections,
+      markdownReport: renderMarkdownReport({
+        topic: input.request.topic,
+        executiveSummary,
+        sections,
+      }),
       comparisons,
       clusters,
       citations: input.evidence,

@@ -443,6 +443,11 @@ export const ResearchClusterSchema = z.object({
   domains: z.array(z.string()),
 });
 
+export const ResearchReportSectionSchema = z.object({
+  title: z.string(),
+  bullets: z.array(z.string()),
+});
+
 export const ResearchReportSchema = z.object({
   executiveSummary: z.string(),
   coverageSummary: z.string(),
@@ -451,6 +456,8 @@ export const ResearchReportSchema = z.object({
   uncertainties: z.array(z.string()),
   agreements: z.array(z.string()),
   contradictions: z.array(z.string()),
+  sections: z.array(ResearchReportSectionSchema),
+  markdownReport: z.string(),
   comparisons: z.array(ResearchComparisonRowSchema),
   clusters: z.array(ResearchClusterSchema),
   citations: z.array(ResearchEvidenceSchema),
@@ -616,6 +623,7 @@ export type ResearchTaskCheckpoint = z.infer<typeof ResearchTaskCheckpointSchema
 export type ResearchTopicResponse = z.infer<typeof ResearchTopicResponseSchema>;
 export type ResearchComparisonRow = z.infer<typeof ResearchComparisonRowSchema>;
 export type ResearchCluster = z.infer<typeof ResearchClusterSchema>;
+export type ResearchReportSection = z.infer<typeof ResearchReportSectionSchema>;
 export type ResearchReport = z.infer<typeof ResearchReportSchema>;
 export type CrawlDomainRequest = z.infer<typeof CrawlDomainRequestSchema>;
 export type CrawlDomainResponse = z.infer<typeof CrawlDomainResponseSchema>;

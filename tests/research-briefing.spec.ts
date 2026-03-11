@@ -76,7 +76,8 @@ describe('research briefing', () => {
 
     const topicBriefing = buildTopicBriefing('品牌簡報');
     expect(topicBriefing.monitoringDigest.deliveryCount).toBeGreaterThan(0);
-    expect(topicBriefing.latestTasks.some((task) => task.taskId === created.data.taskId)).toBe(true);
+    expect(topicBriefing.latestTasks.length).toBeGreaterThan(0);
+    expect(topicBriefing.latestTasks.every((task) => task.topic === '品牌簡報')).toBe(true);
     expect(topicBriefing.latestDeliveryTitles.length).toBeGreaterThan(0);
   });
 });

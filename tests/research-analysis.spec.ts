@@ -73,6 +73,9 @@ describe('buildResearchReport', () => {
     expect(result.report.trendSignals.length).toBeGreaterThan(0);
     expect(result.report.agreements.length).toBeGreaterThan(0);
     expect(result.report.contradictions.length).toBeGreaterThan(0);
+    expect(result.report.sections.length).toBeGreaterThan(0);
+    expect(result.report.markdownReport).toContain('# Research Report: 台灣 CRM 市場');
+    expect(result.report.markdownReport).toContain('## Key Insights');
     expect(result.clusteredDocuments[0]?.clusterId).toBeTruthy();
   });
 });
