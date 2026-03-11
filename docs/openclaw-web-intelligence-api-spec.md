@@ -1,8 +1,14 @@
 # OpenClaw Web Intelligence Gateway — API Spec
 
+> This file remains a low-level API/reference contract for existing engines.
+> It is no longer the primary product entrypoint definition.
+> Canonical top-level skill interfaces now live in:
+> - [openclaw-web-intelligence-prd.md](./openclaw-web-intelligence-prd.md)
+> - [openclaw-web-intelligence-sdd.md](./openclaw-web-intelligence-sdd.md)
+
 > API style: internal service / library contract first, HTTP transport optional.
 
-> **注意**：本文件描述 v1 API 規格。MVP 2.0 規劃中的欄位（如 `renderMode`、`robotsMode`、`structured` kinds）已在 schema 中預留，實作細節請參考 [ARCHITECTURE.md](./ARCHITECTURE.md)。
+> **注意**：本文件描述現有 engine 的低階 API 規格。較高層的產品與系統定義請參考 PRD 與 SDD。
 
 ---
 

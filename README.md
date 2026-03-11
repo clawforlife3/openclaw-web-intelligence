@@ -5,9 +5,10 @@
 - GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
 - Current status: **MVP 2.0 first-usable，正進入 production hardening**
 - 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
-- 路線圖：[`docs/ROADMAP.md`](./docs/ROADMAP.md)
-- 演進計畫：[`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
-- 架構文件：[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- PRD：[`docs/openclaw-web-intelligence-prd.md`](./docs/openclaw-web-intelligence-prd.md)
+- SDD：[`docs/openclaw-web-intelligence-sdd.md`](./docs/openclaw-web-intelligence-sdd.md)
+- User Stories：[`docs/openclaw-web-intelligence-user-stories.md`](./docs/openclaw-web-intelligence-user-stories.md)
+- API Spec：[`docs/openclaw-web-intelligence-api-spec.md`](./docs/openclaw-web-intelligence-api-spec.md)
 
 ---
 
@@ -802,23 +803,18 @@ npm run test
 6. Storage backend upgrade
 7. Production observability / health model
 
-完整路線請見 [`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)。
+完整產品與技術方向請見 PRD / SDD / User Stories。
 
 ---
 
 ## 相關文件
 
 - [CURRENT_STATE.md](./docs/CURRENT_STATE.md)
-- [FINAL_TODO.md](./docs/FINAL_TODO.md)
-- [ROADMAP.md](./docs/ROADMAP.md)
-- [RESEARCH_TO_PRODUCTION_PLAN.md](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
 - [BROWSER_OPS.md](./docs/BROWSER_OPS.md)
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [PRD](./docs/openclaw-web-intelligence-prd.md)
 - [SDD](./docs/openclaw-web-intelligence-sdd.md)
 - [User Stories](./docs/openclaw-web-intelligence-user-stories.md)
 - [API Spec](./docs/openclaw-web-intelligence-api-spec.md)
-- [Implementation Plan](./docs/openclaw-web-intelligence-implementation-plan.md)
 
 ---
 

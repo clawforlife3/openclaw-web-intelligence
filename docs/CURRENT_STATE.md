@@ -1,10 +1,19 @@
-# OpenClaw Web Intelligence Gateway — Current State
+# OpenClaw Autonomous Web Research Skill — Current State
 
 > Snapshot date: 2026-03-11
+> Canonical product/spec documents:
+> - [openclaw-web-intelligence-prd.md](./openclaw-web-intelligence-prd.md)
+> - [openclaw-web-intelligence-sdd.md](./openclaw-web-intelligence-sdd.md)
+> - [openclaw-web-intelligence-user-stories.md](./openclaw-web-intelligence-user-stories.md)
 
 ## Executive Summary
 
-專案已經超出原始 MVP 1.0，現況更接近 **MVP 2.0 多個 phase 的 first-usable version**。
+專案已經不應再被主要定義成單純 crawler。
+現況更準確的說法是：
+
+- 底層 retrieval/crawl 基礎已具備
+- 上層 autonomous research orchestration 還在建設中
+- 專案正從 `web intelligence gateway` 過渡到 `autonomous web research skill`
 
 目前已落地：
 - unified extraction pipeline
@@ -87,7 +96,7 @@
 
 ## Recommended Next Steps
 
-> 詳細兩階段演進請見 [RESEARCH_TO_PRODUCTION_PLAN.md](./RESEARCH_TO_PRODUCTION_PLAN.md)
+> 詳細產品方向請見 PRD / SDD / User Stories。
 
 ### Near-term（Research Strengthening）
 1. ~~補 sitemap ingestion~~ ✅ 已完成

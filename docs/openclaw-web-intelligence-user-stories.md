@@ -1,453 +1,384 @@
-# OpenClaw Web Intelligence Gateway — User Stories & Epics
+# OpenClaw Autonomous Web Research Skill — User Stories
 
-> This document includes both **Epics** and **User Stories** to avoid over-splitting files in the early implementation phase.
+> Canonical backlog source as of 2026-03-11.
+> Stories are grouped by product epics aligned to the new research-skill architecture.
 
----
+## 1. Epic Overview
 
-# 1. Executive Summary
+### Epic 1 — Skill Gateway and Task Lifecycle
 
-本文件將 PRD 與 SDD 轉成可執行 backlog，方便：
+Expose natural-language-first research tools and manage long-running tasks.
 
-- 建立 Jira / Linear tickets
-- 排 sprint
-- 分派給 agent / 工程師
-- 做 MVP scope control
+### Epic 2 — Planning and Query Generation
 
----
+Translate a topic into executable research strategy.
 
-# 2. Epic Overview
+### Epic 3 — Discovery and Candidate URL Collection
 
-## Epic 1 — Platform Foundations
-建立專案骨架、schema、錯誤模型、設定與基礎模組。
+Find relevant pages across search, domains, sitemaps, and crawl paths.
 
-## Epic 2 — Search & Source Discovery
-提供搜尋能力與來源正規化。
+### Epic 4 — Retrieval and Fetch Strategy
 
-## Epic 3 — Extract & Normalization
-提供單頁抽取、內容清洗與統一輸出。
+Fetch pages reliably with static/browser/proxy/session/challenge handling.
 
-## Epic 4 — Map & Crawl Engine
-提供網站探索與有限範圍 crawl。
+### Epic 5 — Extraction and Document Normalization
 
-## Epic 5 — Storage, Cache & Observability
-提供持久化、快取與基礎可觀測性。
+Produce research-ready normalized documents.
 
-## Epic 6 — Safety & Guardrails
-提供 domain policy、robots、PII redaction、風險控制。
+### Epic 6 — Corpus Processing
 
-## Epic 7 — OpenClaw Integration
-把能力包成 OpenClaw 可直接調用的介面。
+Deduplicate, rank, filter, and cluster documents into a high-quality corpus.
 
-## Epic 8 — Monitor & Diff
-提供網站變更監控與通知。
+### Epic 7 — Analysis and Reporting
 
-## Epic 9 — Post-MVP Browser Interaction
-提供登入、點擊、輸入、等待、下載等互動式流程。
+Generate evidence-backed outputs users can directly consume.
 
----
+### Epic 8 — Monitoring and Recurring Intelligence
 
-# 3. User Stories by Epic
+Run topic/domain monitoring on a schedule with diffs and alerts.
 
-## Epic 1 — Platform Foundations
+### Epic 9 — Reliability, Checkpointing, and Operations
 
-### Story 1.1 — Define core response schema
-**As a** developer  
-**I want** all operations to return a unified schema  
-**So that** downstream agents and workflows can consume results consistently.
+Keep the system recoverable, bounded, and observable.
 
-**Acceptance Criteria**
-- search / extract / map / crawl response schema are documented
-- all schemas are versioned
-- validation failure returns explicit error object
+## 2. Epic 1 — Skill Gateway and Task Lifecycle
 
-### Story 1.2 — Define error taxonomy
-**As a** developer  
-**I want** a standard error model  
-**So that** retries, logs, and alerts behave predictably.
+### Story 1.1 — Start a research task from a topic
 
-**Acceptance Criteria**
-- retryable vs non-retryable errors are identified
-- all error codes are documented
-- adapter maps internal errors to external response shape
+As an OpenClaw user,
+I want to submit a topic and goal,
+So that the system can start a research workflow without requiring URLs.
 
-### Story 1.3 — Bootstrap project structure
-**As a** developer  
-**I want** a modular codebase skeleton  
-**So that** teams can build engines independently.
+Acceptance criteria:
 
-**Acceptance Criteria**
-- repo folder structure matches SDD
-- modules compile in TypeScript
-- lint/test baseline passes
+- accepts topic-first input
+- returns task ID and initial status
+- validates required fields
 
----
+### Story 1.2 — Track task progress
 
-## Epic 2 — Search & Source Discovery
+As an operator or agent,
+I want stage-level progress,
+So that I know whether the system is planning, discovering, fetching, or analyzing.
 
-### Story 2.1 — Integrate initial search provider
-**As an** OpenClaw user  
-**I want** to search the web from one interface  
-**So that** research tasks start with quality sources.
+Acceptance criteria:
 
-**Acceptance Criteria**
-- query input returns normalized result list
-- provider timeouts are handled
-- results include title, url, snippet, rank
+- progress model includes stage and percentage or stage stats
+- long-running tasks expose intermediate status
 
-### Story 2.2 — Support include/exclude domains
-**As a** researcher  
-**I want** to constrain domains  
-**So that** I can limit results to trusted or target sources.
+### Story 1.3 — Resume interrupted tasks
 
-**Acceptance Criteria**
-- include_domains works
-- exclude_domains works
-- invalid domain filters fail validation
-
-### Story 2.3 — Result dedupe and ranking
-**As a** user  
-**I want** duplicate search hits removed  
-**So that** results are cleaner and cheaper to process.
-
-**Acceptance Criteria**
-- duplicate URLs collapse deterministically
-- canonical-equivalent results are merged when possible
-- score/rank field is preserved
-
-### Story 2.4 — Search-to-extract pipeline
-**As an** OpenClaw agent  
-**I want** to search and immediately extract top results  
-**So that** research workflows require fewer separate calls.
-
-**Acceptance Criteria**
-- search results can trigger optional extract pipeline
-- extracted results preserve original search ranking context
-- pipeline can cap number of extracted URLs
-
----
-
-## Epic 3 — Extract & Normalization
-
-### Story 3.1 — Fetch and parse static pages
-**As a** developer  
-**I want** to fetch HTML and parse content  
-**So that** static pages can be extracted cheaply.
-
-**Acceptance Criteria**
-- supports text/html and basic JSON pages
-- redirects are tracked
-- non-supported content types return explicit error or fallback metadata
-
-### Story 3.2 — Extract main content
-**As an** agent  
-**I want** the main page content instead of noisy boilerplate  
-**So that** downstream reasoning is cleaner.
-
-**Acceptance Criteria**
-- title extracted when available
-- main body is cleaner than raw HTML dump
-- nav/footer noise reduced for common docs/blog pages
-
-### Story 3.3 — Normalize to markdown
-**As an** OpenClaw workflow  
-**I want** extracted content in markdown  
-**So that** it is token-efficient and readable.
-
-**Acceptance Criteria**
-- headings, links, lists preserved reasonably
-- empty markdown is flagged
-- markdown path stored in artifacts when persistence enabled
-
-### Story 3.4 — Extract metadata and links
-**As a** user  
-**I want** metadata and discovered links  
-**So that** I can assess source quality and expand crawl scope.
-
-**Acceptance Criteria**
-- metadata includes title, canonical, description when available
-- links array is returned
-- internal/external link classification available in normalized form
-
-### Story 3.5 — Structured extraction v1
-**As a** workflow builder  
-**I want** a place for structured fields  
-**So that** targeted data like price or publish date can be captured.
-
-**Acceptance Criteria**
-- structured object present in schema
-- basic field extraction supported for common fields
-- missing fields do not fail the request
-
----
-
-## Epic 4 — Map & Crawl Engine
-
-### Story 4.1 — Map a site
-**As a** user  
-**I want** to discover site URLs without extracting all pages  
-**So that** I can inspect scope before a crawl.
-
-**Acceptance Criteria**
-- map returns URL list
-- max_depth and limit enforced
-- off-scope URLs excluded
-
-### Story 4.2 — Normalize and dedupe URLs
-**As a** crawler engine  
-**I want** canonical URL handling  
-**So that** duplicate fetches are minimized.
-
-**Acceptance Criteria**
-- trailing slash normalization documented
-- fragment removal handled
-- duplicate enqueue prevented
-
-### Story 4.3 — Crawl limited site scope
-**As a** user  
-**I want** to crawl a domain/path with limits  
-**So that** I can collect a bounded dataset safely.
-
-**Acceptance Criteria**
-- depth / breadth / page limit enforced
-- discovered pages stored in crawl report
-- crawl stops cleanly on reaching limits
-
-### Story 4.4 — Honor robots policy
-**As an** operator  
-**I want** configurable robots handling  
-**So that** crawling behavior follows deployment policy.
-
-**Acceptance Criteria**
-- strict / balanced / off modes exist
-- robots-denied pages are logged
-- policy mode is visible in request metadata
-
-### Story 4.5 — Crawl report generation
-**As a** user  
-**I want** a crawl summary  
-**So that** I can understand what happened without reading every page result.
-
-**Acceptance Criteria**
-- report includes pages visited, pages skipped, errors, discovered links count
-- report includes stop reason
-- report is persisted when storage is enabled
-
----
-
-## Epic 5 — Storage, Cache & Observability
-
-### Story 5.1 — Persist page artifacts
-**As a** developer  
-**I want** raw and normalized outputs saved  
-**So that** failed or surprising extractions can be debugged.
-
-**Acceptance Criteria**
-- raw artifact path stored
-- normalized markdown/text path stored
-- metadata persisted in SQLite
-
-### Story 5.2 — Add cache for extract/search
-**As a** system operator  
-**I want** repeat requests to hit cache  
-**So that** latency and cost are reduced.
-
-**Acceptance Criteria**
-- cache lookup happens before external execution
-- cache hit metadata returned
-- TTL configurable by operation
-
-### Story 5.3 — Structured logs
-**As a** maintainer  
-**I want** structured logs for requests/jobs  
-**So that** failures are traceable.
-
-**Acceptance Criteria**
-- trace id included
-- operation type included
-- status / latency / retries logged
-
-### Story 5.4 — Basic metrics
-**As an** operator  
-**I want** key service metrics  
-**So that** I can monitor system health.
-
-**Acceptance Criteria**
-- success rate measurable
-- retry count measurable
-- cache hit rate measurable
-- latency by operation measurable
-
----
-
-## Epic 6 — Safety & Guardrails
-
-### Story 6.1 — Domain allow/deny policies
-**As an** operator  
-**I want** to control allowed targets  
-**So that** scraping stays within intended boundaries.
-
-**Acceptance Criteria**
-- allowlist mode supported
-- denylist supported
-- denied requests return explicit error
-
-### Story 6.2 — PII redaction in logs
-**As an** operator  
-**I want** sensitive values removed from logs  
-**So that** diagnostics do not leak secrets.
-
-**Acceptance Criteria**
-- email / phone / token-like strings redacted in logs
-- raw artifacts are not emitted into logs
-- redaction behavior documented
-
-### Story 6.3 — Untrusted content annotations
-**As an** agent integrator  
-**I want** extracted web content marked untrusted  
-**So that** prompt injection risk is reduced.
-
-**Acceptance Criteria**
-- response metadata can mark content as untrusted
-- suspicious prompt-like fragments may be annotated
-- annotations do not corrupt normal extraction output
-
----
-
-## Epic 7 — OpenClaw Integration
-
-### Story 7.1 — Expose search/extract/map/crawl through OpenClaw-facing interface
-**As an** OpenClaw agent  
-**I want** a stable interface  
-**So that** I can use the gateway without custom wrappers per flow.
-
-**Acceptance Criteria**
-- adapter methods exist for MVP operations
-- input validation occurs before execution
-- errors are returned in consistent schema
-
-### Story 7.2 — Document usage contract
-**As a** workflow builder  
-**I want** examples and usage guidance  
-**So that** I can apply the tool correctly.
-
-**Acceptance Criteria**
-- examples for research, docs indexing, monitoring exist
-- operation selection guidance exists
-- common pitfalls documented
-
-### Story 7.3 — Integrate with cron/webhook flows
-**As a** user  
-**I want** scheduled or event-driven runs  
-**So that** the tool supports automation, not just one-off retrieval.
-
-**Acceptance Criteria**
-- monitor jobs can be triggered by scheduler/webhook
-- outputs can be formatted for downstream notification flows
-- run records are persisted
-
----
-
-## Epic 8 — Monitor & Diff
-
-### Story 8.1 — Create monitor jobs
-**As a** user  
-**I want** to define recurring checks on targets  
-**So that** I can track changes over time.
-
-**Acceptance Criteria**
-- monitor job schema defined
-- schedule and diff policy configurable
-- job can target page or crawl scope
-
-### Story 8.2 — Compare against baseline
-**As a** monitoring workflow  
-**I want** to compare current and previous states  
-**So that** only meaningful changes surface.
-
-**Acceptance Criteria**
-- content hash diff supported
-- field diff supported for selected fields
-- no-change runs do not trigger alerts
-
-### Story 8.3 — Cooldown and dedupe alerts
-**As a** user  
-**I want** repeated identical changes suppressed  
-**So that** I am not spammed.
-
-**Acceptance Criteria**
-- cooldown window configurable
-- duplicate same-state alerts suppressed
-- alert reason visible in metadata
-
----
-
-## Epic 9 — Post-MVP Browser Interaction
-
-### Story 9.1 — Execute scripted browser actions
-**As a** workflow builder  
-**I want** to run click/type/wait/scroll actions  
-**So that** JS-heavy pages become extractable.
-
-### Story 9.2 — Isolate browser sessions
-**As an** operator  
-**I want** session isolation  
-**So that** cookies and credentials do not bleed across jobs.
-
-### Story 9.3 — Capture artifacts on failure
-**As a** maintainer  
-**I want** screenshots and HTML snapshots on browser failure  
-**So that** broken flows are debuggable.
-
----
-
-# 4. MVP Sprint Recommendation
-
-## Sprint 1
-- Epic 1
-- Story 3.1, 3.2, 3.3, 3.4
-
-## Sprint 2
-- Epic 2
-- Story 5.1, 5.2, 5.3
-
-## Sprint 3
-- Epic 4
-- Story 6.1, 6.2, 6.3
-
-## Sprint 4
-- Epic 7
-- Story 8.1, 8.2, 8.3
-
----
-
-# 5. Story Prioritization
-
-## Must Have (MVP)
-- 1.1, 1.2, 1.3
-- 2.1, 2.2, 2.3
-- 3.1, 3.2, 3.3, 3.4
-- 4.1, 4.2, 4.3, 4.4, 4.5
-- 5.1, 5.2, 5.3, 5.4
-- 6.1, 6.2, 6.3
-- 7.1, 7.2
-- 8.1, 8.2
-
-## Should Have
-- 2.4
-- 3.5
-- 7.3
-- 8.3
-
-## Could Have
-- Epic 9 all stories
-
----
-
-# 6. Final Note
-
-這份 backlog 已經足夠直接轉進 Jira / Linear。若下一步要丟給 coding agent 實作，建議再搭配：
-
-- `openclaw-web-intelligence-api-spec.md`
-- `openclaw-web-intelligence-implementation-plan.md`
-
-一起使用。
+As an operator,
+I want interrupted research tasks to resume,
+So that long-running jobs do not restart from zero.
+
+Acceptance criteria:
+
+- task checkpoint persists stage and work progress
+- resume continues from last durable checkpoint
+
+## 3. Epic 2 — Planning and Query Generation
+
+### Story 2.1 — Generate research plan from user intent
+
+As a research user,
+I want the system to transform my topic into a plan,
+So that the rest of the workflow can run autonomously.
+
+Acceptance criteria:
+
+- plan includes queries
+- plan includes source types
+- plan includes stop conditions
+- plan includes budget hints
+
+### Story 2.2 — Adapt plan by region, time range, and language
+
+As a user,
+I want the plan to reflect my regional and temporal constraints,
+So that results match my actual research scope.
+
+Acceptance criteria:
+
+- planner accepts region, language, and time range
+- generated queries and ranking reflect those constraints
+
+### Story 2.3 — Support different research goals
+
+As a user,
+I want to specify whether I want summary, comparison, tracking, or domain exploration,
+So that the system chooses an appropriate workflow.
+
+Acceptance criteria:
+
+- planner recognizes goal mode
+- different goal modes affect discovery and output strategy
+
+## 4. Epic 3 — Discovery and Candidate URL Collection
+
+### Story 3.1 — Harvest URLs from search queries
+
+As the system,
+I want to collect URLs from generated search queries,
+So that topic research begins with broad coverage.
+
+Acceptance criteria:
+
+- candidate URLs record source query
+- URLs are normalized and deduplicated
+
+### Story 3.2 — Expand within promising domains
+
+As the system,
+I want to expand inside promising domains using sitemap and crawl paths,
+So that I can gather better evidence than search results alone.
+
+Acceptance criteria:
+
+- sitemap discovery is supported
+- domain crawl expansion is supported
+- discovered URLs are scored
+
+### Story 3.3 — Prioritize candidate URLs
+
+As the system,
+I want to rank candidate URLs before retrieval,
+So that limited budget is spent on the best evidence first.
+
+Acceptance criteria:
+
+- candidate URLs have priority score
+- priority considers relevance, source type, and domain diversity
+
+## 5. Epic 4 — Retrieval and Fetch Strategy
+
+### Story 4.1 — Retrieve cheaply first, escalate only when needed
+
+As the system,
+I want static fetch first and browser fallback only when needed,
+So that cost remains controlled.
+
+Acceptance criteria:
+
+- static path is default
+- shell detection can escalate to browser
+- strategy is logged
+
+### Story 4.2 — Reuse sessions and cookies per domain
+
+As the system,
+I want session continuity for domains,
+So that repeated requests have better success rates.
+
+Acceptance criteria:
+
+- domain cookie jar exists
+- browser state can persist by domain
+- session TTL and rotation are supported
+
+### Story 4.3 — Classify anti-bot and challenge responses
+
+As the system,
+I want to distinguish ordinary failures from challenge pages,
+So that retries and escalation are correct.
+
+Acceptance criteria:
+
+- challenge pages are detected
+- challenge type is recorded
+- manual escalation path is available
+
+## 6. Epic 5 — Extraction and Document Normalization
+
+### Story 5.1 — Produce research-ready documents
+
+As the analysis pipeline,
+I want normalized document outputs,
+So that downstream ranking and reporting are consistent.
+
+Acceptance criteria:
+
+- each document includes content, metadata, and source fields
+- confidence and quality scores are present
+
+### Story 5.2 — Extract structured data when useful
+
+As a research workflow,
+I want structured extraction for pages like docs, products, and articles,
+So that comparisons and summaries can use richer fields.
+
+Acceptance criteria:
+
+- structured extractors are pluggable
+- page type can influence extraction behavior
+
+## 7. Epic 6 — Corpus Processing
+
+### Story 6.1 — Remove duplicate and near-duplicate content
+
+As the system,
+I want to reduce duplicated content,
+So that analysis is not polluted by mirrors, reposts, and template pages.
+
+Acceptance criteria:
+
+- exact dedup exists
+- near dedup exists
+- duplicate stats are recorded
+
+### Story 6.2 — Rank documents by quality and relevance
+
+As the system,
+I want to sort evidence by topical value,
+So that analysis sees the best corpus first.
+
+Acceptance criteria:
+
+- relevance score exists
+- source quality score exists
+- thin/spam pages can be filtered
+
+### Story 6.3 — Maintain domain diversity
+
+As the user,
+I want findings to reflect multiple sources,
+So that reports are not dominated by a single domain.
+
+Acceptance criteria:
+
+- corpus ranking includes domain diversity control
+- report includes source coverage summary
+
+## 8. Epic 7 — Analysis and Reporting
+
+### Story 7.1 — Generate evidence-backed summaries
+
+As a user,
+I want a final report that cites evidence,
+So that I can trust and verify the output.
+
+Acceptance criteria:
+
+- report includes findings
+- report includes source list
+- report includes evidence snippets
+
+### Story 7.2 — Generate comparison outputs
+
+As a user comparing tools, schools, or products,
+I want structured comparisons,
+So that I can make decisions quickly.
+
+Acceptance criteria:
+
+- comparison-oriented outputs are supported
+- extracted structured fields can feed comparison output
+
+### Story 7.3 — Surface uncertainty and disagreement
+
+As a user,
+I want confidence notes and conflicting-source detection,
+So that the report does not overstate certainty.
+
+Acceptance criteria:
+
+- disagreement can be surfaced
+- confidence notes are part of report output
+
+## 9. Epic 8 — Monitoring and Recurring Intelligence
+
+### Story 8.1 — Monitor a topic over time
+
+As a user,
+I want a recurring research task,
+So that I can keep tracking a market, brand, or theme.
+
+Acceptance criteria:
+
+- schedule is configurable
+- changed findings can be reported
+
+### Story 8.2 — Alert on meaningful changes
+
+As an operator,
+I want alerts only when changes matter,
+So that monitoring output stays actionable.
+
+Acceptance criteria:
+
+- diff modes exist
+- alert policy supports cooldown and only-on-change
+
+## 10. Epic 9 — Reliability, Checkpointing, and Operations
+
+### Story 9.1 — Recover after worker interruption
+
+As an operator,
+I want in-flight tasks to recover after interruption,
+So that long-running jobs do not get stuck permanently.
+
+Acceptance criteria:
+
+- worker heartbeat exists
+- stale reclaim exists
+- retry/DLQ exists
+
+### Story 9.2 — Bound research cost
+
+As an operator,
+I want runtime and budget controls,
+So that autonomous research jobs do not run unbounded.
+
+Acceptance criteria:
+
+- page, domain, runtime, browser, and retry budgets exist
+- stop conditions are persisted
+
+### Story 9.3 — Observe pipeline health
+
+As an operator,
+I want pipeline metrics and dashboards,
+So that I can identify failure hotspots and quality regressions.
+
+Acceptance criteria:
+
+- stage-level metrics exist
+- duplicate ratio exists
+- fetch success, fallback, challenge, and latency metrics exist
+
+## 11. Release-oriented Story Groups
+
+### Release A — Topic Research Skill
+
+Must include:
+
+- Stories 1.1, 1.2
+- Stories 2.1, 2.2, 2.3
+- Stories 3.1, 3.3
+- Stories 4.1
+- Stories 5.1
+- Stories 6.1, 6.2, 6.3
+- Stories 7.1, 7.3
+
+### Release B — Deep Domain Research
+
+Must include:
+
+- Story 3.2
+- Story 5.2
+- Story 7.2
+
+### Release C — Persistent Monitoring
+
+Must include:
+
+- Stories 8.1, 8.2
+- Stories 9.1, 9.2, 9.3
+
+### Release D — Advanced Research Infrastructure
+
+Must include:
+
+- Story 4.2
+- Story 4.3
+- stronger multi-agent orchestration variants of planning, discovery, analysis, and reporting
