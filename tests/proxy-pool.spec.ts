@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ProxyPool, createProxyPool, getProxyPool } from '../src/proxy/pool.js';
+import { getMetrics, resetMetrics } from '../src/observability/metrics.js';
 
 describe('ProxyPool', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resetMetrics();
   });
 
   describe('createProxyPool', () => {
@@ -125,6 +127,31 @@ describe('ProxyPool', () => {
       const updated = pool.listProxies()[0];
       expect(updated.failCount).toBe(15);
       expect(updated.isHealthy).toBe(false);
+    });
+
+    it('tracks proxy metrics for selection, failures, and recovery', () => {
+      const pool = createProxyPool({
+        proxies: ['http://test:8080'],
+        minHealthThreshold: 0.5,
+      });
+
+      const selected = pool.getProxy();
+      expect(selected).toBeTruthy();
+
+      const proxy = pool.listProxies()[0];
+      for (let i = 0; i < 15; i++) {
+        pool.reportResult(proxy.id, false, 1000);
+      }
+      for (let i = 0; i < 20; i++) {
+        pool.reportResult(proxy.id, true, 50);
+      }
+
+      const metrics = getMetrics();
+      expect(metrics.proxies.selected).toBe(1);
+      expect(metrics.proxies.failures).toBe(15);
+      expect(metrics.proxies.recovered).toBeGreaterThanOrEqual(1);
+      expect(metrics.proxies.total).toBe(1);
+      expect(metrics.proxies.healthy).toBe(1);
     });
   });
 

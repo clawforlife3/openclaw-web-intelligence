@@ -3,7 +3,7 @@
 > 為 OpenClaw Agent 設計的網頁情報取得工具：搜尋、抽取、網站地圖、爬取、browser fallback、structured extraction、monitor/diff。
 
 - GitHub: https://github.com/clawforlife3/openclaw-web-intelligence
-- Current status: **MVP 1.0 完成 / MVP 2.0 first-usable**
+- Current status: **MVP 2.0 first-usable，正進入 production hardening**
 - 詳細現況：[`docs/CURRENT_STATE.md`](./docs/CURRENT_STATE.md)
 - 路線圖：[`docs/ROADMAP.md`](./docs/ROADMAP.md)
 - 演進計畫：[`docs/RESEARCH_TO_PRODUCTION_PLAN.md`](./docs/RESEARCH_TO_PRODUCTION_PLAN.md)
@@ -50,11 +50,14 @@
 - **Anti-bot Detection**：403/429 偵測並拋出 ANTI_BOT_BLOCKED 錯誤
 - **Proxy Support (schema)**：proxyUrl 參數預留
 - **Distributed Crawling**：worker/shard 抽象 + URL 分割
+- **Session Persistence / Cookie Jar**：domain-level cookie/session reuse + browser storage state baseline
+- **Challenge Handling**：challenge / CAPTCHA detection + manual escalation baseline
 - **Storage Backend**：SQLite + Memory 雙後端支援
 - **Proxy Pool**：proxy rotation + health check
 - **Advanced Rate Limiting**：per-domain + global + backoff
 - **Redis Queue**：多 worker 協調與持久化佇列
 - **Anti-bot Evasion**：UA rotation + pacing + block detection
+- **Multi-cluster Orchestration Baseline**：namespace / region / coordinator 抽象
 
 ### 目前最適合的用途
 - 技術文件站抓取（docs / guides / references）
@@ -64,16 +67,52 @@
 - 後續變更監控的 baseline 能力
 - Production-scale crawling（需搭配 Redis + Proxy Pool）
 
-### 已實現的 Production 功能
+### 已實現的 Production Baseline
 - ✅ Proxy Pool（輪換 + 健康檢查）
 - ✅ Anti-bot Evasion（UA rotation + request pacing + block detection）
 - ✅ Advanced Rate Limiting（per-domain + global + backoff）
-- ✅ Redis Queue（多 Worker 協調）
+- ✅ Redis Queue（多 Worker 協調 + retry / dead-letter / stale reclaim baseline）
 - ✅ Distributed Crawling（worker/shard 抽象）
+- ✅ Structured Logging / Trace Context baseline
+- ✅ Metrics / Health summary baseline
+- ✅ Session persistence / cookie jar baseline
+- ✅ Challenge detection / manual escalation baseline
+- ✅ Cluster coordinator / namespace isolation baseline
 
 ### 尚不適合的場景
 - 超過 1000+ 節點的分散式爬蟲（需要更進階的調度系統）
 - 需要 CAPTCHA 解题的網站（需要第三方服務整合）
+- 需要已驗證的生產級 Redis / proxy integration test 矩陣（目前仍在 hardening）
+
+## 簡單架構圖
+
+```text
+Agent / CLI
+  -> search | extract | map | crawl | monitor
+  -> fetch router
+       -> static fetch ----\
+       -> browser fetch ----> extract pipeline -> cache -> observability
+  -> queue / worker / redis
+  -> proxy pool / rate limiter / anti-bot / session store
+  -> metrics / dashboard / health
+```
+
+## Hardening / Ops
+
+```bash
+# 可執行 unit/hardening 測試
+npm run test:unit
+
+# Redis integration harness（需先啟 Redis）
+docker compose -f docker-compose.redis-test.yml up -d redis-test
+REDIS_TEST_URL=redis://127.0.0.1:6389 npm run test:redis
+
+# Proxy integration harness（需允許本地 listen）
+ALLOW_LOCAL_LISTEN_TESTS=1 npm run test:proxy
+
+# 觀測摘要
+npm run dashboard
+```
 
 ---
 

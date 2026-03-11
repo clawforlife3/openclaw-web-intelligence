@@ -20,7 +20,7 @@ Use it when you need to:
 Do **not** use it as your first choice for:
 - large-scale production crawling
 - anti-bot heavy targets
-- distributed crawling jobs (use worker/shard API for that)
+- distributed crawling jobs with strict SLOs (use Redis worker + cluster coordinator baseline for that)
 - browser interaction workflows requiring clicks/forms/login (use browser automation tooling for that)
 
 ---
@@ -73,16 +73,15 @@ npm run crawl -- --url https://react.dev --max-depth=2 --limit=50
 
 # Monitor - 建立 baseline 並比對變更
 npm run monitor -- --url https://react.dev/changelog
+
+# Dashboard - 觀測摘要
+npm run dashboard
 ```
 
 ### Method 2: Import as Module (在 code 中使用)
 
 ```typescript
-import { search } from './engines/search/ddgSearch.js';
-import { extract } from './engines/extract/httpExtractor.js';
-import { crawl } from './engines/crawl/crawler.js';
-import { map } from './engines/map/siteMapper.js';
-import { monitor } from './monitor/monitor.js';
+import { search, extract, crawl, map, monitor, ClusterCoordinator } from './src/api/index.js';
 
 // Search
 const searchResult = await search({ query: "TypeScript best practices" });
@@ -239,6 +238,9 @@ For docs crawling, call out:
 ✅ Anti-bot detection (403/429)  
 ✅ Distributed crawling (worker/shard)  
 ✅ Storage backend (SQLite + memory)
+✅ Session persistence / cookie jar baseline
+✅ Challenge detection / manual escalation baseline
+✅ Cluster coordinator / namespace isolation baseline
 
 ---
 
@@ -246,3 +248,4 @@ For docs crawling, call out:
 
 - 大規模分散式爬蟲需要外部 worker 協調
 - 複雜 anti-bot 網站需要自定義策略
+- Redis / proxy integration tests 在受限環境下會走 env-gated harness

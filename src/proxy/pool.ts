@@ -1,4 +1,5 @@
 import { ProxyAgent } from 'undici';
+import { incrementProxyMetric, setProxyMetrics } from '../observability/metrics.js';
 
 export interface Proxy {
   id: string;
@@ -47,6 +48,8 @@ export class ProxyPool {
         this.addProxy(url);
       }
     }
+
+    this.syncMetrics();
   }
 
   addProxy(url: string): Proxy {
@@ -62,16 +65,21 @@ export class ProxyPool {
       isHealthy: true,
     };
     this.proxies.set(id, proxy);
+    this.syncMetrics();
     return proxy;
   }
 
   removeProxy(id: string): boolean {
-    return this.proxies.delete(id);
+    const removed = this.proxies.delete(id);
+    this.syncMetrics();
+    return removed;
   }
 
   getProxy(): Proxy | null {
     const healthy = Array.from(this.proxies.values()).filter(p => p.isHealthy);
     if (healthy.length === 0) return null;
+
+    incrementProxyMetric('selected');
 
     switch (this.config.strategy) {
       case 'random':
@@ -90,18 +98,24 @@ export class ProxyPool {
   reportResult(proxyId: string, success: boolean, latencyMs: number): void {
     const proxy = this.proxies.get(proxyId);
     if (!proxy) return;
+    const wasHealthy = proxy.isHealthy;
 
     if (success) {
       proxy.successCount++;
       proxy.latency = proxy.latency * 0.9 + latencyMs * 0.1;
     } else {
       proxy.failCount++;
+      incrementProxyMetric('failures');
     }
 
     const total = proxy.successCount + proxy.failCount;
     proxy.health = total > 10 ? proxy.successCount / total : proxy.health;
     proxy.isHealthy = proxy.health >= this.config.minHealthThreshold;
     proxy.lastChecked = new Date();
+    if (!wasHealthy && proxy.isHealthy) {
+      incrementProxyMetric('recovered');
+    }
+    this.syncMetrics();
   }
 
   async healthCheck(): Promise<void> {
@@ -154,6 +168,11 @@ export class ProxyPool {
       healthy: all.filter(p => p.isHealthy).length,
       unhealthy: all.filter(p => !p.isHealthy).length,
     };
+  }
+
+  private syncMetrics(): void {
+    const stats = this.getStats();
+    setProxyMetrics(stats);
   }
 
   listProxies(): Proxy[] {

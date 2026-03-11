@@ -1,5 +1,6 @@
 import type { MonitorChange, MonitorRequest, MonitorSnapshot } from '../types/schemas.js';
 import { incrementMetric } from '../observability/metrics.js';
+import { logInfo } from '../observability/logger.js';
 
 export interface AlertPayload {
   monitorJobId: string;
@@ -18,11 +19,11 @@ export interface AlertNotifier {
 export class ConsoleNotifier implements AlertNotifier {
   name = 'console';
   async send(payload: AlertPayload): Promise<void> {
-    // eslint-disable-next-line no-console
-    console.log('[monitor-alert]', {
+    logInfo('monitor.alert', 'Monitor alert emitted', {
       target: payload.target,
       changed: payload.changed,
-      summary: payload.change.summary,
+      outcome: payload.changed ? 'change_detected' : 'no_change',
+      summary: payload.change.summary.join(' | '),
     });
   }
 }

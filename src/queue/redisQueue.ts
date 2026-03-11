@@ -2,15 +2,19 @@ import { Redis } from 'ioredis';
 
 export interface CrawlJob {
   jobId: string;
+  traceId?: string;
   urls: string[];
   config: Record<string, unknown>;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'dead-letter';
   workerId?: string;
   createdAt: string;
   startedAt?: string;
+  visibilityTimeoutAt?: string;
   completedAt?: string;
   result?: unknown;
   error?: string;
+  retryCount?: number;
+  maxRetries?: number;
 }
 
 export interface DistributedQueueConfig {
@@ -19,6 +23,8 @@ export interface DistributedQueueConfig {
   workerId: string;
   heartbeatInterval: number;
   jobTtlSeconds: number;
+  defaultMaxRetries: number;
+  visibilityTimeoutMs: number;
 }
 
 const DEFAULT_CONFIG: Required<DistributedQueueConfig> = {
@@ -27,6 +33,8 @@ const DEFAULT_CONFIG: Required<DistributedQueueConfig> = {
   workerId: `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   heartbeatInterval: 30000,
   jobTtlSeconds: 3600,
+  defaultMaxRetries: 2,
+  visibilityTimeoutMs: 5 * 60 * 1000,
 };
 
 export class RedisQueue {
@@ -44,6 +52,9 @@ export class RedisQueue {
       ...job,
       status: 'queued',
       createdAt: new Date().toISOString(),
+      traceId: job.traceId ?? `trace_job_${job.jobId}`,
+      retryCount: job.retryCount ?? 0,
+      maxRetries: job.maxRetries ?? this.config.defaultMaxRetries,
     };
 
     await this.redis.lpush(
@@ -67,6 +78,7 @@ export class RedisQueue {
     job.status = 'processing';
     job.workerId = this.config.workerId;
     job.startedAt = new Date().toISOString();
+    job.visibilityTimeoutAt = new Date(Date.now() + this.config.visibilityTimeoutMs).toISOString();
 
     // Store normalized job details and track only jobId in processing queue
     await this.redis.setex(
@@ -110,25 +122,41 @@ export class RedisQueue {
   async fail(jobId: string, error: string): Promise<void> {
     const jobKey = `job:${jobId}`;
     const jobJson = await this.redis.get(jobKey);
-    
+
     if (!jobJson) return;
 
     const job: CrawlJob = JSON.parse(jobJson);
-    job.status = 'failed';
-    job.completedAt = new Date().toISOString();
     job.error = error;
+    job.completedAt = new Date().toISOString();
+    job.retryCount = (job.retryCount ?? 0) + 1;
 
-    // Move to failed queue
-    await this.redis.lpush(
-      `failed:${this.config.queueName}`,
-      JSON.stringify(job)
-    );
-
-    // Remove from processing
+    // Remove from processing first
     await this.redis.lrem(
       `processing:${this.config.queueName}:${this.config.workerId}`,
       0,
       jobId
+    );
+
+    if ((job.retryCount ?? 0) <= (job.maxRetries ?? this.config.defaultMaxRetries)) {
+      job.status = 'queued';
+      delete job.workerId;
+      delete job.startedAt;
+      delete job.visibilityTimeoutAt;
+      await this.redis.setex(jobKey, this.config.jobTtlSeconds, JSON.stringify(job));
+      await this.redis.rpush(`queue:${this.config.queueName}`, JSON.stringify(job));
+      return;
+    }
+
+    job.status = 'dead-letter';
+
+    // Move to dead-letter queue and failed queue for observability
+    await this.redis.lpush(
+      `dead-letter:${this.config.queueName}`,
+      JSON.stringify(job)
+    );
+    await this.redis.lpush(
+      `failed:${this.config.queueName}`,
+      JSON.stringify(job)
     );
 
     // Clean up job key
@@ -145,11 +173,13 @@ export class RedisQueue {
     processing: number;
     completed: number;
     failed: number;
+    deadLetter: number;
   }> {
-    const [queued, completed, failed] = await Promise.all([
+    const [queued, completed, failed, deadLetter] = await Promise.all([
       this.redis.llen(`queue:${this.config.queueName}`),
       this.redis.llen(`completed:${this.config.queueName}`),
       this.redis.llen(`failed:${this.config.queueName}`),
+      this.redis.llen(`dead-letter:${this.config.queueName}`),
     ]);
 
     // Count processing jobs across all workers
@@ -159,7 +189,7 @@ export class RedisQueue {
       processing += await this.redis.llen(k);
     }
 
-    return { queued, processing, completed, failed };
+    return { queued, processing, completed, failed, deadLetter };
   }
 
   async register(): Promise<void> {
@@ -225,6 +255,7 @@ export class RedisQueue {
         job.status = 'queued';
         delete job.workerId;
         delete job.startedAt;
+        delete job.visibilityTimeoutAt;
         await this.redis.setex(`job:${job.jobId}`, this.config.jobTtlSeconds, JSON.stringify(job));
         await this.redis.lrem(key, 0, jobId);
         await this.redis.rpush(`queue:${this.config.queueName}`, JSON.stringify(job));
@@ -237,7 +268,23 @@ export class RedisQueue {
 
   async cleanup(): Promise<void> {
     this.stopHeartbeat();
-    
+
+    // Graceful shutdown: requeue any jobs still assigned to this worker
+    const processingKey = `processing:${this.config.queueName}:${this.config.workerId}`;
+    const jobIds = await this.redis.lrange(processingKey, 0, -1);
+    for (const jobId of jobIds) {
+      const jobJson = await this.redis.get(`job:${jobId}`);
+      if (!jobJson) continue;
+      const job: CrawlJob = JSON.parse(jobJson);
+      job.status = 'queued';
+      delete job.workerId;
+      delete job.startedAt;
+      delete job.visibilityTimeoutAt;
+      await this.redis.setex(`job:${job.jobId}`, this.config.jobTtlSeconds, JSON.stringify(job));
+      await this.redis.rpush(`queue:${this.config.queueName}`, JSON.stringify(job));
+      await this.redis.lrem(processingKey, 0, jobId);
+    }
+
     // Remove worker from registry
     await this.redis.srem(
       `workers:${this.config.queueName}`,

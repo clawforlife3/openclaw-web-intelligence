@@ -89,7 +89,7 @@ class AdvancedRateLimiter {
     const elapsed = now - this.globalBucket.lastRefill;
     const tokensToAdd = (elapsed / 1000) * this.config.global.requestsPerSecond;
     this.globalBucket.tokens = Math.min(
-      this.config.global.maxConcurrent,
+      this.config.global.requestsPerSecond,
       this.globalBucket.tokens + tokensToAdd
     );
     this.globalBucket.lastRefill = now;
@@ -156,22 +156,27 @@ class AdvancedRateLimiter {
 
   private processQueue(): void {
     const now = Date.now();
-    this.waitQueue = this.waitQueue.filter((entry) => {
+    const remaining: WaitEntry[] = [];
+    let granted = false;
+
+    for (const entry of this.waitQueue) {
       const bucket = this.buckets.get(entry.domain);
       this.refill(entry.domain);
       this.refillGlobal();
 
-      if (bucket && bucket.tokens >= 1 && this.globalBucket.tokens >= 1 && this.globalConcurrency < this.config.global.maxConcurrent) {
+      if (!granted && bucket && bucket.tokens >= 1 && this.globalBucket.tokens >= 1 && this.globalConcurrency < this.config.global.maxConcurrent) {
         entry.resolve();
-        return false;
+        granted = true;
+        continue;
       }
-      // Remove stale entries
       if (entry.addedAt < now - 10000) {
         entry.resolve();
-        return false;
+        continue;
       }
-      return true;
-    });
+      remaining.push(entry);
+    }
+
+    this.waitQueue = remaining;
   }
 
   async backoff(domain: string): Promise<void> {

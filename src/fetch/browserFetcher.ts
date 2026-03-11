@@ -3,6 +3,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ExtractError } from '../types/errors.js';
 import { getEvasionManager } from '../anti-bot/evasion.js';
+import { buildFetchPolicy, getOutcome } from './policy.js';
+import { getSessionStore } from '../anti-bot/sessionStore.js';
+import { handleChallenge } from '../anti-bot/challenge.js';
+import { recordDomainOutcome } from '../observability/metrics.js';
+import { getDomainFromUrl } from '../observability/trace.js';
 import type { StaticFetchRequest, StaticFetchResult } from './staticFetcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +57,7 @@ function normalizeHeaders(headers: { [key: string]: string }): Record<string, st
 export async function browserFetch(request: BrowserFetchRequest): Promise<BrowserFetchResult> {
   const playwright = await loadPlaywright();
   const evasion = getEvasionManager();
+  const sessionStore = getSessionStore();
   let browser: Awaited<ReturnType<PlaywrightModule['chromium']['launch']>> | undefined;
   let screenshotPath: string | undefined;
 
@@ -62,10 +68,11 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
 
     const session = evasion?.getSession();
     const fingerprint = session?.fingerprint;
+    const policy = buildFetchPolicy({ ...request, strategy: 'browser' });
 
     browser = await playwright.chromium.launch({
       headless: true,
-      proxy: request.proxyUrl ? { server: request.proxyUrl } : undefined,
+      proxy: policy.proxyUrl ? { server: policy.proxyUrl } : undefined,
     });
     const context = await browser.newContext({
       userAgent: session?.userAgent || request.userAgent,
@@ -78,12 +85,14 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       locale: session?.language?.split(',')[0] || 'en-US',
       timezoneId: fingerprint?.timezone || 'Asia/Taipei',
       extraHTTPHeaders: evasion?.getHeaders(),
+      storageState: sessionStore?.getStorageStatePath(request.url),
     });
 
     const page = await context.newPage();
+    const startTime = Date.now();
     const response = await page.goto(request.url, {
       waitUntil: request.waitUntil ?? 'domcontentloaded',
-      timeout: request.timeoutMs,
+      timeout: policy.timeoutMs,
     });
 
     if (!response) {
@@ -94,8 +103,16 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
 
     const statusCode = response.status();
     const html = await page.content();
+    const headers = normalizeHeaders(await response.allHeaders());
 
-    const analysis = evasion?.analyzeResponse(statusCode, normalizeHeaders(await response.allHeaders()), html);
+    await handleChallenge({
+      url: request.url,
+      statusCode,
+      headers,
+      body: html,
+    });
+
+    const analysis = evasion?.analyzeResponse(statusCode, headers, html);
     if (analysis?.blocked) {
       throw new ExtractError('ANTI_BOT_BLOCKED', analysis.reason || `Blocked by anti-bot or rate limiting: ${statusCode}`, true, {
         url: request.url,
@@ -117,7 +134,13 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       writeFileSync(screenshotPath, screenshot);
     }
 
-    const headers = normalizeHeaders(await response.allHeaders());
+    const storageState = await context.storageState();
+    sessionStore?.persistBrowserState(request.url, storageState);
+    recordDomainOutcome({
+      domain: getDomainFromUrl(request.url),
+      latencyMs: Date.now() - startTime,
+      success: true,
+    });
     await context.close();
 
     return {
@@ -132,11 +155,16 @@ export async function browserFetch(request: BrowserFetchRequest): Promise<Browse
       screenshotPath,
     };
   } catch (err) {
+    recordDomainOutcome({
+      domain: getDomainFromUrl(request.url),
+      blocked: err instanceof ExtractError && (err.code === 'ANTI_BOT_BLOCKED' || err.code === 'CHALLENGE_REQUIRED'),
+    });
     if (err instanceof ExtractError) throw err;
 
     throw new ExtractError('BROWSER_UNAVAILABLE', `Browser fetch failed for ${request.url}`, true, {
       url: request.url,
       cause: (err as Error).message,
+      outcome: getOutcome(false, 'browser'),
       nextStep: 'Verify Playwright browser binaries are installed and launchable in this environment.',
     });
   } finally {

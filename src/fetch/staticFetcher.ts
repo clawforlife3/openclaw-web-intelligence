@@ -1,7 +1,11 @@
 import { ProxyAgent } from 'undici';
 import { ExtractError } from '../types/errors.js';
-import { getProxyPool, type Proxy } from '../proxy/pool.js';
 import { getEvasionManager } from '../anti-bot/evasion.js';
+import { buildFetchPolicy, getOutcome } from './policy.js';
+import { getSessionStore } from '../anti-bot/sessionStore.js';
+import { handleChallenge } from '../anti-bot/challenge.js';
+import { recordDomainOutcome } from '../observability/metrics.js';
+import { getDomainFromUrl } from '../observability/trace.js';
 
 export interface StaticFetchRequest {
   url: string;
@@ -58,29 +62,16 @@ function buildRequestHeaders(request: StaticFetchRequest): Record<string, string
 
 export async function staticFetch(request: StaticFetchRequest): Promise<StaticFetchResult> {
   let lastErr: unknown;
-
   const evasion = getEvasionManager();
+  const sessionStore = getSessionStore();
 
   for (let attempt = 0; attempt <= request.retryMax; attempt += 1) {
     if (evasion) {
       await evasion.delay();
     }
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), request.timeoutMs);
-
-    let proxy: Proxy | null = null;
-    let usedProxyUrl: string | undefined = request.proxyUrl;
-    
-    // Use proxy pool if no explicit proxy specified
-    if (!usedProxyUrl) {
-      const pool = getProxyPool();
-      if (pool) {
-        proxy = pool.getProxy();
-        if (proxy) {
-          usedProxyUrl = proxy.url;
-        }
-      }
-    }
+    const policy = buildFetchPolicy({ ...request, strategy: 'static' });
+    const timer = setTimeout(() => ctrl.abort(), policy.timeoutMs);
 
     // Get evasion headers if enabled
     let evasionHeaders: Record<string, string> = {};
@@ -91,9 +82,13 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
     const fetchOptions: RequestInit = {
       redirect: 'follow',
       signal: ctrl.signal,
-      headers: { ...buildRequestHeaders(request), ...evasionHeaders },
+      headers: {
+        ...buildRequestHeaders(request),
+        ...evasionHeaders,
+        ...(policy.cookieHeader ? { cookie: policy.cookieHeader } : {}),
+      },
       // @ts-expect-error - dispatcher is undici-specific
-      dispatcher: usedProxyUrl ? new ProxyAgent(usedProxyUrl) : undefined,
+      dispatcher: policy.proxyUrl ? new ProxyAgent(policy.proxyUrl) : undefined,
     };
 
     try {
@@ -103,10 +98,10 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       clearTimeout(timer);
 
       // Report proxy result if used
-      if (proxy) {
-        const pool = getProxyPool();
+      if (policy.proxy) {
+        const pool = (await import('../proxy/pool.js')).getProxyPool();
         if (pool) {
-          pool.reportResult(proxy.id, res.ok, latency);
+          pool.reportResult(policy.proxy.id, res.ok, latency);
         }
       }
 
@@ -122,7 +117,19 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       }
 
       const responseHeaders = Object.fromEntries(res.headers.entries());
+      sessionStore?.updateFromResponse(
+        request.url,
+        typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [],
+      );
       const validators = extractValidators(responseHeaders);
+      const bodyForChallenge = res.status >= 400 ? await res.clone().text() : undefined;
+
+      await handleChallenge({
+        url: request.url,
+        statusCode: res.status,
+        headers: responseHeaders,
+        body: bodyForChallenge,
+      });
 
       if (res.status === 403 || res.status === 429) {
         throw new ExtractError('ANTI_BOT_BLOCKED', `Blocked by anti-bot or rate limiting: ${res.status}`, true, {
@@ -160,6 +167,11 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       }
 
       const html = await res.text();
+      recordDomainOutcome({
+        domain: getDomainFromUrl(request.url),
+        latencyMs: latency,
+        success: true,
+      });
       return {
         requestedUrl: request.url,
         finalUrl: res.url,
@@ -177,12 +189,16 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
       };
     } catch (err) {
       clearTimeout(timer);
-      if (proxy) {
-        const pool = getProxyPool();
+      if (policy.proxy) {
+        const pool = (await import('../proxy/pool.js')).getProxyPool();
         if (pool) {
-          pool.reportResult(proxy.id, false, request.timeoutMs);
+          pool.reportResult(policy.proxy.id, false, policy.timeoutMs);
         }
       }
+      recordDomainOutcome({
+        domain: getDomainFromUrl(request.url),
+        blocked: err instanceof ExtractError && err.code === 'ANTI_BOT_BLOCKED',
+      });
       lastErr = err;
       if (attempt < request.retryMax) {
         await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
@@ -195,6 +211,7 @@ export async function staticFetch(request: StaticFetchRequest): Promise<StaticFe
     throw new ExtractError('FETCH_TIMEOUT', `Timeout while fetching ${request.url}`, true, {
       url: request.url,
       timeoutMs: request.timeoutMs,
+      outcome: getOutcome(false, 'static'),
     });
   }
 

@@ -5,7 +5,8 @@ import { browserFetch } from '../../fetch/browserFetcher.js';
 import { fetchWithRouter } from '../../fetch/fetchWithRouter.js';
 import { extractDocument, evaluateBrowserRetry } from '../../extract/extractPipeline.js';
 import { logExtractRequest } from '../../observability/requestLogger.js';
-import { incrementMetric } from '../../observability/metrics.js';
+import { incrementMetric, recordDomainOutcome } from '../../observability/metrics.js';
+import { getDomainFromUrl } from '../../observability/trace.js';
 import { getPreferredStrategy, recordFetchOutcome } from '../retry/hostPolicyMemory.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
@@ -215,10 +216,22 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
 
     await logExtractRequest({
       requestId,
+      traceId,
       urlCount: output.data.documents.length,
+      operation: 'extract',
       status: 'ok',
       tookMs: Date.now() - started,
     });
+
+    for (const document of output.data.documents) {
+      recordDomainOutcome({
+        domain: getDomainFromUrl(document.url),
+        latencyMs: output.meta?.tookMs,
+        browserFallback: document.fetch?.fallbackUsed,
+        retryReason: document.fetch?.retryReason,
+        success: true,
+      });
+    }
 
     return output;
   } catch (err) {
@@ -228,12 +241,23 @@ export async function extract(request: ExtractRequestInput): Promise<ExtractResp
 
     await logExtractRequest({
       requestId,
+      traceId,
       urlCount: Array.isArray((request as { urls?: unknown }).urls) ? (request as { urls: unknown[] }).urls.length : 0,
+      operation: 'extract',
       status: 'error',
       tookMs: Date.now() - started,
       errorCode: known.code,
       errorMessage: known.message,
     });
+
+    const urls = Array.isArray((request as { urls?: unknown }).urls) ? (request as { urls: string[] }).urls : [];
+    for (const url of urls) {
+      recordDomainOutcome({
+        domain: getDomainFromUrl(url),
+        blocked: known.code === 'ANTI_BOT_BLOCKED',
+        retryReason: known.code === 'ANTI_BOT_BLOCKED' ? 'http_error_retry' : undefined,
+      });
+    }
 
     throw known;
   }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { logExtractRequest } from '../../observability/requestLogger.js';
+import { incrementMetric } from '../../observability/metrics.js';
 import { ExtractError } from '../../types/errors.js';
 import { generateRequestId, generateTraceId } from '../../types/utils.js';
 import { SearchRequestSchema, SearchResponseSchema, type SearchResponse } from '../../types/schemas.js';
@@ -52,10 +53,13 @@ export async function search(request: SearchRequestInput): Promise<SearchRespons
 
     // Validate
     SearchResponseSchema.parse(output);
+    incrementMetric('searchRuns');
 
     await logExtractRequest({
       requestId,
+      traceId,
       urlCount: data.results.length,
+      operation: 'search',
       status: 'ok',
       tookMs: Date.now() - started,
     });
@@ -68,7 +72,9 @@ export async function search(request: SearchRequestInput): Promise<SearchRespons
 
     await logExtractRequest({
       requestId,
+      traceId,
       urlCount: 0,
+      operation: 'search',
       status: 'error',
       tookMs: Date.now() - started,
       errorCode: known.code,

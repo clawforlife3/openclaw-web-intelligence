@@ -90,9 +90,25 @@ integration('RedisQueue integration', () => {
 
     await queue.fail('job-2', 'boom');
 
-    const stats = await queue.getQueueStats();
+    let stats = await queue.getQueueStats();
+    expect(stats.processing).toBe(0);
+    expect(stats.queued).toBe(1);
+    expect(stats.failed).toBe(0);
+    expect(stats.deadLetter).toBe(0);
+
+    // Fail enough times to push into dead-letter
+    const retried1 = await queue.dequeue();
+    expect(retried1?.jobId).toBe('job-2');
+    await queue.fail('job-2', 'boom-2');
+
+    const retried2 = await queue.dequeue();
+    expect(retried2?.jobId).toBe('job-2');
+    await queue.fail('job-2', 'boom-3');
+
+    stats = await queue.getQueueStats();
     expect(stats.processing).toBe(0);
     expect(stats.failed).toBe(1);
+    expect(stats.deadLetter).toBe(1);
   });
 
   it('registers and lists workers via heartbeat', async () => {
@@ -121,6 +137,33 @@ integration('RedisQueue integration', () => {
 
     const reclaimed = await queue.reclaimStaleJobs(1000);
     expect(reclaimed).toContain('job-3');
+
+    const stats = await queue.getQueueStats();
+    expect(stats.processing).toBe(0);
+    expect(stats.queued).toBe(1);
+  });
+
+  it('requeues in-flight jobs on cleanup for graceful shutdown', async () => {
+    await queue.enqueue({
+      jobId: 'job-4',
+      urls: ['https://example.com/cleanup'],
+      config: { limit: 1 },
+    });
+
+    const dequeued = await queue.dequeue();
+    expect(dequeued?.jobId).toBe('job-4');
+
+    await queue.cleanup();
+
+    // recreate queue handle to inspect post-cleanup state
+    queue = createRedisQueue({
+      redisUrl: REDIS_URL,
+      queueName,
+      workerId: `worker-${Math.random().toString(36).slice(2, 8)}`,
+      heartbeatInterval: 1000,
+      jobTtlSeconds: 60,
+      defaultMaxRetries: 2,
+    });
 
     const stats = await queue.getQueueStats();
     expect(stats.processing).toBe(0);

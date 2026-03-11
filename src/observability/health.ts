@@ -12,6 +12,11 @@ export interface HealthResponse {
     completed: number;
     failed: number;
   };
+  summary: {
+    workerAlive: number;
+    proxyHealthy: number;
+    proxyTotal: number;
+  };
 }
 
 export function healthCheck(): HealthResponse {
@@ -33,5 +38,10 @@ export function healthCheck(): HealthResponse {
     timestamp: new Date().toISOString(),
     metrics,
     queue,
+    summary: {
+      workerAlive: metrics.queue.workerAlive,
+      proxyHealthy: metrics.proxies.healthy,
+      proxyTotal: metrics.proxies.total,
+    },
   };
 }

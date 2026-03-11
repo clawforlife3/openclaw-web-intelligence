@@ -8,7 +8,14 @@ type LogStatus = 'ok' | 'error';
 
 export async function logExtractRequest(entry: {
   requestId: string;
+  traceId?: string;
   urlCount: number;
+  operation?: 'extract' | 'search' | 'crawl' | 'monitor';
+  domain?: string;
+  workerId?: string;
+  jobId?: string;
+  retryReason?: string;
+  outcome?: string;
   status: LogStatus;
   tookMs: number;
   errorCode?: string;

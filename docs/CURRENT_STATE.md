@@ -24,6 +24,9 @@
 - site-specific structured extraction v2（Docusaurus/MkDocs/GitHub Docs/Changelog 專用 extractors）
 - browser ops 部署文件
 - lightweight per-domain rate limiting
+- domain-level session persistence / cookie jar baseline
+- challenge / CAPTCHA detection + manual escalation baseline
+- cluster coordinator / namespace isolation baseline
 
 ## Completion Estimate
 
@@ -49,7 +52,7 @@
 | Robots | planned | ✅ strict/balanced/off v1 |
 | Monitor/Diff | post-MVP | ✅ v1 baseline + field diff |
 | Sitemap | research | ✅ v1 sitemap.xml discovery + map/crawl |
-| Distributed/proxy | long-term | ❌ 尚未實作 |
+| Distributed/proxy | long-term | ✅ 已有 Redis queue / proxy pool / distributed worker baseline；仍缺 production hardening |
 
 ## Main Gaps
 
@@ -73,10 +76,14 @@
    - ✅ alerting 機制（alerting.ts: Console/Webhook）
 
 5. **Productionization**
-   - ✅ per-domain rate limiting
-   - ✅ proxy schema 預留（proxyUrl）
-   - ✅ metrics + health endpoint
-   - ✅ job queue / status tracking
+   - ✅ per-domain / global rate limiting baseline
+   - ✅ proxy pool + proxy schema（`proxyUrl`）
+   - ✅ metrics + health endpoint baseline
+   - ✅ job queue / status tracking + retry / dead-letter baseline
+   - ✅ session persistence / cookie jar baseline
+   - ✅ challenge handling baseline
+   - ✅ cluster coordinator baseline
+   - ⚠️ 真正 Redis integration、proxy integration 仍依賴可開 socket / Redis 環境驗證
 
 ## Recommended Next Steps
 

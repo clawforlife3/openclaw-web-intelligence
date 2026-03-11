@@ -18,3 +18,6 @@ export { browserFetch } from '../fetch/browserFetcher.js';
 export { monitor } from '../monitor/monitor.js';
 export { createProxyPool, getProxyPool, setProxyPool } from '../proxy/pool.js';
 export { createEvasionManager, getEvasionManager, setEvasionManager } from '../anti-bot/evasion.js';
+export { createSessionStore, getSessionStore, setSessionStore, detectChallenge, handleChallenge } from '../anti-bot/index.js';
+export { getDashboardSnapshot } from '../observability/dashboard.js';
+export { ClusterCoordinator, buildNamespace, chooseRegion } from '../queue/orchestrator.js';
