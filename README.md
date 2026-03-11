@@ -458,6 +458,91 @@ monitor 建 baseline
 
 ---
 
+## 使用方式
+
+### CLI 指令
+
+```bash
+cd ~/projects/openclaw-web-intelligence
+
+# Search - 搜尋候選 URL
+npm run search -- --query "React server components"
+
+# Extract - 擷取單一頁面
+npm run extract -- --url https://react.dev --include-structured=true
+
+# Map - 探索網站結構
+npm run map -- --url https://react.dev --max-depth=2
+
+# Crawl - 爬取多頁面
+npm run crawl -- --url https://react.dev --max-depth=2 --limit=50
+
+# Monitor - 建立/檢查變更
+npm run monitor -- --url https://react.dev/changelog
+```
+
+### 程式化使用 (TypeScript)
+
+```typescript
+import { search, extract, crawl, map, monitor } from './src/api/index.js';
+
+// Search
+const sources = await search({ query: "TypeScript best practices" });
+
+// Extract
+const docs = await extract({
+  urls: ["https://www.typescriptlang.org/docs/"],
+  includeStructured: true,
+});
+
+// Crawl
+const corpus = await crawl({
+  seedUrl: "https://docs.example.com",
+  maxDepth: 2,
+  limit: 50,
+  robotsMode: "balanced",
+});
+
+// Map
+const siteMap = await map({
+  url: "https://docs.example.com",
+  maxDepth: 2,
+  limit: 100,
+});
+
+// Monitor - 建立 baseline
+const baseline = await monitor({
+  target: "https://docs.example.com/changelog",
+  execution: { operation: "extract" },
+});
+
+// Monitor - 檢查變更
+const check = await monitor({
+  target: "https://docs.example.com/changelog",
+  execution: { operation: "extract" },
+});
+// check.data.changed === true 表示有變更
+```
+
+### 主要 API 參數
+
+| 功能 | 參數 | 說明 |
+|------|------|------|
+| **Extract** | `urls` | 要擷取的 URL 陣列 |
+| | `includeStructured` | 開啟結構化欄位提取 |
+| | `renderMode` | auto/static/browser |
+| **Crawl** | `seedUrl` | 起始 URL |
+| | `maxDepth` | 最大爬取深度 |
+| | `limit` | 最大頁面數 |
+| | `robotsMode` | strict/balanced/off |
+| **Map** | `url` | 目標 URL |
+| | `maxDepth` | 最大深度 |
+| | `limit` | 最大 URL 數 |
+| **Monitor** | `target` | 監控目標 |
+| | `execution.operation` | extract/crawl |
+
+---
+
 ## Repo 內附 Skill
 
 本 repo 已內附一個可直接引用的 skill：

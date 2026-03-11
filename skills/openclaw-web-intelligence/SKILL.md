@@ -20,7 +20,7 @@ Use it when you need to:
 Do **not** use it as your first choice for:
 - large-scale production crawling
 - anti-bot heavy targets
-- distributed crawling jobs
+- distributed crawling jobs (use worker/shard API for that)
 - browser interaction workflows requiring clicks/forms/login (use browser automation tooling for that)
 
 ---
@@ -51,12 +51,88 @@ Choose the smallest operation that answers the question:
 
 ---
 
+## How to use from OpenClaw Agent
+
+### Method 1: CLI (直接執行)
+
+```bash
+# 進入專案目錄
+cd ~/projects/openclaw-web-intelligence
+
+# Search - 搜尋候選 URL
+npm run search -- --query "React server components"
+
+# Extract - 擷取單一頁面
+npm run extract -- --url https://react.dev --include-structured=true
+
+# Map - 探索網站結構
+npm run map -- --url https://react.dev --max-depth=2
+
+# Crawl - 爬取多頁面
+npm run crawl -- --url https://react.dev --max-depth=2 --limit=50
+
+# Monitor - 建立 baseline 並比對變更
+npm run monitor -- --url https://react.dev/changelog
+```
+
+### Method 2: Import as Module (在 code 中使用)
+
+```typescript
+import { search } from './engines/search/ddgSearch.js';
+import { extract } from './engines/extract/httpExtractor.js';
+import { crawl } from './engines/crawl/crawler.js';
+import { map } from './engines/map/siteMapper.js';
+import { monitor } from './monitor/monitor.js';
+
+// Search
+const searchResult = await search({ query: "TypeScript best practices" });
+
+// Extract
+const extractResult = await extract({
+  urls: ["https://www.typescriptlang.org/docs/"],
+  includeStructured: true,
+});
+
+// Crawl
+const crawlResult = await crawl({
+  seedUrl: "https://docs.example.com",
+  maxDepth: 2,
+  limit: 50,
+});
+
+// Map
+const mapResult = await map({
+  url: "https://docs.example.com",
+  maxDepth: 2,
+  limit: 100,
+});
+
+// Monitor (建立 baseline)
+const baseline = await monitor({
+  target: "https://docs.example.com/changelog",
+  execution: { operation: "extract" },
+});
+
+// Monitor (檢查變更)
+const check = await monitor({
+  target: "https://docs.example.com/changelog",
+  execution: { operation: "extract" },
+});
+// check.data.changed === true 表示有變更
+```
+
+### Method 3: As OpenClaw MCP/Worker
+
+可以將此專案包裝為 MCP server 或 worker，讓 OpenClaw agent 透過 API 調用。
+
+---
+
 ## Suggested workflow patterns
 
 ### Pattern A: Topic research
 
-```text
-search -> extract top sources -> crawl one authoritative site -> synthesize
+```
+search → extract top sources → crawl one authoritative site → synthesize
 ```
 
 Use this for:
@@ -66,8 +142,8 @@ Use this for:
 
 ### Pattern B: Documentation analysis
 
-```text
-map -> crawl -> structured docs extraction -> summarize architecture / setup / API surface
+```
+map → crawl → structured docs extraction → summarize
 ```
 
 Use this for:
@@ -77,8 +153,8 @@ Use this for:
 
 ### Pattern C: Change detection baseline
 
-```text
-monitor(create baseline) -> rerun monitor later -> compare title/text/structured/urlCount
+```
+monitor(create baseline) → rerun monitor later → compare
 ```
 
 Use this for:
@@ -89,29 +165,39 @@ Use this for:
 
 ---
 
-## Practical usage notes
-
-### Search
-Use search first when the target URL is not known.
+## Key API Options
 
 ### Extract
-Prefer `renderMode=auto` unless you already know the site needs browser rendering.
-Turn on `includeStructured=true` when the page is likely an article/docs/product/forum page.
-
-### Map
-Use before crawl if the site is unfamiliar or you want to inspect scope first.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `urls` | string[] | required | URLs to extract |
+| `includeStructured` | boolean | false | 結構化欄位提取 |
+| `renderMode` | auto/static/browser | auto | 渲染模式 |
+| `allowDomains` | string[] | [] | 允許的網域 |
+| `denyDomains` | string[] | [] | 拒絕的網域 |
 
 ### Crawl
-Keep the scope constrained:
-- low `maxDepth`
-- reasonable `limit`
-- respect robots mode
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `seedUrl` | string | required | 起始 URL |
+| `maxDepth` | number | 2 | 最大深度 |
+| `limit` | number | 100 | 最大頁面數 |
+| `robotsMode` | strict/balanced/off | balanced | robots.txt 策略 |
+
+### Map
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | string | required | 目標 URL |
+| `maxDepth` | number | 2 | 最大深度 |
+| `limit` | number | 100 | 最大 URL 數 |
 
 ### Monitor
-Current monitor is **engine-level v1**:
-- baseline snapshot
-- field diff
-- no recurring scheduler/alerting built in yet
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `target` | string | required | 監控目標 URL |
+| `execution.operation` | extract/crawl | required | 執行操作 |
+| `schedule` | string | - | 排程 (如 "every 1h") |
+| `notifyPolicy` | object | - | 通知策略 |
 
 ---
 
@@ -131,30 +217,32 @@ For docs crawling, call out:
 
 ---
 
-## Repo-local references
+## Repo references
 
-- Project root: `projects/openclaw-web-intelligence/`
+- Project: `projects/openclaw-web-intelligence/`
 - README: `projects/openclaw-web-intelligence/README.md`
 - Current state: `projects/openclaw-web-intelligence/docs/CURRENT_STATE.md`
-- Roadmap: `projects/openclaw-web-intelligence/docs/ROADMAP.md`
+
+---
+
+## 已實現的功能 (2026-03-11)
+
+✅ Sitemap ingestion  
+✅ Retry classification  
+✅ Host policy memory  
+✅ Site-specific structured extraction (Docusaurus/MkDocs/GitHub Docs/Changelog)  
+✅ Browser ops 部署文件  
+✅ Per-domain rate limiting  
+✅ Monitor scheduling + alerting  
+✅ Job queue / worker  
+✅ Health endpoint  
+✅ Anti-bot detection (403/429)  
+✅ Distributed crawling (worker/shard)  
+✅ Storage backend (SQLite + memory)
 
 ---
 
 ## Current limitations
 
-- no sitemap ingestion yet
-- no host policy memory yet
-- no per-domain rate limiting yet
-- no recurring monitor scheduler/alerting yet
-- not intended for massive distributed crawling
-
----
-
-## Recommended next evolution
-
-For stronger research crawler behavior, prioritize:
-1. sitemap ingestion
-2. retry classification / host policy memory
-3. richer site-specific structured extraction
-4. browser ops / deployment guidance
-5. rate limiting
+- 大規模分散式爬蟲需要外部 worker 協調
+- 複雜 anti-bot 網站需要自定義策略
